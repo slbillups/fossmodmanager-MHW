@@ -43,15 +43,7 @@ function App() {
                  Search
               </Button>
             </Space>
-            <Space className="top-toolbar-right">
-              {/* Maybe add other global actions here later */}
-              {/* Conditionally render the update button */}
-              {currentView === 'games' && (
-                <Button type="primary">
-                  Check for updates
-                </Button>
-              )}
-            </Space>
+            <Space className="top-toolbar-right" />
           </div>
 
           {/* Main Table Content / Settings Page / Search Page */}

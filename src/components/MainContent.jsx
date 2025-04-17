@@ -127,8 +127,9 @@ const modColumns = [
 ];
 
 const MainContent = () => {
-  // State to keep track of the keys of expanded rows
   const [expandedRowKeys, setExpandedRowKeys] = useState([]);
+  // Determine if any game needs update
+  const isUpdateNeeded = data.some(item => item.needsUpdate);
 
   // Function to render the expanded row content (the mod table)
   const expandedRowRender = (gameRecord) => {
@@ -176,6 +177,27 @@ const MainContent = () => {
           }
         })}
       />
+      {isUpdateNeeded && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
+          <Button
+            className="bespoke-update-button"
+            onClick={() => console.log('Update now clicked')}
+            style={{
+              background: 'linear-gradient(90deg, #1f1f1f, #3a3a3a)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '0 20px',
+              height: '40px',
+              fontSize: '14px',
+              fontWeight: '600',
+              boxShadow: '0 3px 8px rgba(0,0,0,0.3)',
+            }}
+          >
+            Update Now
+          </Button>
+        </div>
+      )}
     </>
   );
 };
