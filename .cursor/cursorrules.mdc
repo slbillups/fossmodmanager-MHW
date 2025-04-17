@@ -1,0 +1,47 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Project Overview: FossModManager (React + Tauri)
+
+**Goal:** Create a platform-agnostic mod manager with a minimalistic, modern desktop UI, similar in concept to Lutris or Vortex but simpler.
+
+**Current State (Frontend Skeleton):**
+
+*   **Framework:** React + Vite
+*   **Desktop App Framework:** Tauri (backend logic not yet implemented)
+*   **UI Library:** Ant Design (antd)
+*   **Layout:**
+    *   Main window using Ant Design's `Layout` component.
+    *   Collapsible `Sider` (sidebar) on the left, controlled by a floating button.
+    *   Main `Content` area occupies the rest of the space.
+    *   No header or footer bars to maximize content space and feel more like a desktop app.
+*   **Components:**
+    *   `App.jsx`: Root component, sets up main layout and state (sidebar collapse).
+    *   `Sidebar.jsx`: Renders the collapsible menu (currently with "Game List" and "Settings" placeholders using Ant Design `Menu` and icons).
+    *   `MainContent.jsx`: Renders the primary view area.
+        *   Displays an Ant Design `Table` listing games (mock data).
+        *   Includes action buttons ("Check for updates", "Update now") above the table.
+        *   The game table supports row expansion.
+        *   Expanding a game row displays an inner Ant Design `Table` listing mods for that game (mock data).
+    *   `AppCustomStyles.css`: Contains minor CSS overrides, primarily for positioning the floating collapse button.
+
+**Backend:**
+
+*   No Rust backend logic has been implemented yet. All data is currently mocked in the frontend components.
+
+**Next Steps (Frontend):**
+
+*   Refine UI/UX (e.g., add mod actions, improve table styling).
+*   Implement state management if needed beyond simple component state.
+*   Connect frontend actions (button clicks, etc.) to Tauri commands (once backend exists).
+
+**Next Steps (Backend - Future):**
+
+*   Implement Tauri commands in Rust for core logic:
+    *   Game detection.
+    *   Mod discovery/management.
+    *   Prefix management.
+    *   Update checking.
+    *   Running games/tools. 

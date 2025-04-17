@@ -1,0 +1,29 @@
+{
+  "name": "fossmodmanager",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.5.0",
+    "@tauri-apps/plugin-fs": "~2.2.1",
+    "@tauri-apps/plugin-http": "~2",
+    "@tauri-apps/plugin-opener": "^2.2.6",
+    "@tauri-apps/plugin-store": "~2",
+    "antd": "^5.24.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@ant-design/icons": "^6.0.0",
+    "@tauri-apps/cli": "^2.5.0",
+    "@vitejs/plugin-react": "^4.4.0",
+    "vite": "^6.2.6"
+  },
+  "packageManager": "pnpm@10.8.0+sha512.0e82714d1b5b43c74610193cb20734897c1d00de89d0e18420aebc5977fa13d780a9cb05734624e81ebd81cc876cd464794850641c48b9544326b5622ca29971"
+}

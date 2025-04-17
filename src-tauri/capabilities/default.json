@@ -1,0 +1,24 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "This program allows access to the steam filesystem as well as the $HOME/.config/fossmodmanager directory and $APPDATA/fossmodmanager directory as well as the $HOME/.config/fossmodmanager directory and $APPDATA/fossmodmanager directory",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "core:app:allow-fetch-data-store-identifiers",
+    "http:allow-fetch",
+    "opener:default",
+    "fs:default",
+    "store:default",
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [
+        {
+          "path": "$APPDATA/*"
+        }
+      ]
+    }
+  ]
+}
