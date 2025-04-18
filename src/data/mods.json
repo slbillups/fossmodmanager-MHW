@@ -1,0 +1,40 @@
+{
+    "2246340": { 
+      "game_slug": "monsterhunterwilds", 
+      "mods": [
+        {
+          "id": "mh-wilds-reframework", 
+          "name": "REFramework",
+          "author": "praydog",
+          "version": "1.7.1", 
+          "nexus_url": "https://www.nexusmods.com/monsterhunterwilds/mods/1",
+          "description_short": "Scripting framework and modding tools.",
+          "dependencies": [] 
+        },
+        {
+          "id": "mh-wilds-mod-manager",
+          "name": "Wilds Mod Manager",
+          "author": "Bolt",
+          "version": "1.2.0",
+          "nexus_url": "https://www.nexusmods.com/monsterhunterwilds/mods/2",
+          "description_short": "A tool to manage PAK mods.",
+          "dependencies": []
+        }
+
+      ]
+    },
+    "6789012": { 
+      "game_slug": "kingdomcomedeliverance2",
+      "mods": [
+        {
+          "id": "kcd2-unlimited-saving",
+          "name": "Unlimited Saving",
+          "author": "NexusUser",
+          "version": "1.0",
+          "nexus_url": "https://www.nexusmods.com/kingdomcomedeliverance2/mods/3",
+          "description_short": "Allows saving anywhere.",
+          "dependencies": []
+        }
+      ]
+    }
+  }

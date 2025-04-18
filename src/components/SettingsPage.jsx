@@ -219,7 +219,7 @@ function SettingsPage() {
                           placeholder="Enter Proton path"
                         />
                       ) : (
-                        <Input size="small" readOnly value={item.protonPath} bordered={false} style={{backgroundColor: 'transparent', color: 'inherit'}}/>
+                        <Input size="small" readOnly value={item.protonPath} variant="filled" style={{backgroundColor: 'transparent', color: 'inherit'}}/>
                       )}
                     </Col>
                     <Col flex="100px"></Col> {/* Alignment spacer */}

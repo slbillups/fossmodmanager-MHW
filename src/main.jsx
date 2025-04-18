@@ -5,7 +5,7 @@ import App from "./App";
 import "./AppCustomStyles.css";
 
 import { ConfigProvider, theme } from "antd"; // Import ConfigProvider and theme
-import "antd/dist/reset.css"; // Import Ant Design CSS reset
+// import "antd/dist/reset.css"; // Import Ant Design CSS reset
 
 
 ReactDOM.createRoot(document.getElementById("root")).render(

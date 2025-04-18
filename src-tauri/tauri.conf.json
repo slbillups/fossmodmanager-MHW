@@ -15,11 +15,30 @@
         "title": "fossmodmanager",
         "width": 800,
         "height": 600,
-        "decorations": false
+        "decorations": false,
+        "label": "main"
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src * ipc: http://ipc.localhost;",
+      "headers": {
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Cross-Origin-Embedder-Policy": "require-corp",
+        "Timing-Allow-Origin": [
+            "https://developer.mozilla.com",
+            "https://*.tauri.app"
+        ],
+        "X-Content-Type-Options": null,
+        "Access-Control-Expose-Headers": "fossmodmanager-version",
+        "Tauri-Custom-Header": {
+          "Application-Version": "0.1.0",
+          "Application-Name": "fossmodmanager",
+          "Application-Sub": "fossmodmanager-vortexAPI-test",
+          "Application-Author": "FossModManager",
+          "Application-Website": "https://github.com/slbillups/fossmodmanager",
+          "Application-Description": "A mod manager for FossMods"
+        }
+      }
     }
   },
   "bundle": {

@@ -1,0 +1,64 @@
+"AppState"
+{
+	"appid"		"236430"
+	"universe"		"1"
+	"name"		"DARK SOULS™ II"
+	"StateFlags"		"4"
+	"installdir"		"Dark Souls II"
+	"LastUpdated"		"1744759289"
+	"LastPlayed"		"0"
+	"SizeOnDisk"		"14823152661"
+	"StagingSize"		"0"
+	"buildid"		"9849657"
+	"LastOwner"		"76561198000299143"
+	"DownloadType"		"1"
+	"UpdateResult"		"0"
+	"BytesToDownload"		"10662382368"
+	"BytesDownloaded"		"10662382368"
+	"BytesToStage"		"14852106915"
+	"BytesStaged"		"14852106915"
+	"TargetBuildID"		"9849657"
+	"AutoUpdateBehavior"		"0"
+	"AllowOtherDownloadsWhileRunning"		"0"
+	"ScheduledAutoUpdate"		"0"
+	"InstalledDepots"
+	{
+		"236432"
+		{
+			"manifest"		"4547260915165328308"
+			"size"		"14823152571"
+		}
+		"271942"
+		{
+			"manifest"		"1308165959807529893"
+			"size"		"30"
+			"dlcappid"		"271942"
+		}
+		"271943"
+		{
+			"manifest"		"7128319083619969881"
+			"size"		"30"
+			"dlcappid"		"271943"
+		}
+		"271944"
+		{
+			"manifest"		"633989536178537058"
+			"size"		"30"
+			"dlcappid"		"271944"
+		}
+	}
+	"SharedDepots"
+	{
+		"228982"		"228980"
+		"228983"		"228980"
+		"228990"		"228980"
+	}
+	"UserConfig"
+	{
+		"language"		"english"
+	}
+	"MountedConfig"
+	{
+		"language"		"english"
+	}
+}

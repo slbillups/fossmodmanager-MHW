@@ -15,18 +15,26 @@ name = "fossmodmanager_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "2.0.0-rec.13", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
-tauri-plugin-opener = "2"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-tauri-plugin-fs = "2"
-tauri-plugin-store = "2"
-tauri-plugin-http = "2"
+tauri = { version = "2.5.0", features = [] }
+tauri-plugin-opener = "2.2.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tauri-plugin-fs = "2.2.1"
+tauri-plugin-store = "2.2.0"
+tauri-plugin-http = "2.2.1"
 anyhow = "1.0.98"
 dialoguer = "0.11.0"
+steamlocate = "2.0.1"
+tauri-plugin-dialog = "2.2.1"
+tauri-plugin-os = "2.2.1"
+tauri-plugin-shell = "2.2.1"
+shellexpand = "3.1.1"
+vdf-reader = "0.3.0"
+base64 = "0.22.1"
+reqwest = { version = "0.12.15", features = ["json"] }
 
 [profile.dev]
 incremental = true
@@ -36,3 +44,5 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+[features]

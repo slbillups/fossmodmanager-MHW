@@ -1,33 +1,34 @@
 import React, { useState } from 'react';
+// Restore imports
 import {
   AppstoreOutlined, // For Game List button
   SettingOutlined,  // For Settings button
   SearchOutlined, // For Search button
 } from '@ant-design/icons';
 import { Button, Layout, Space } from 'antd'; // Removed Menu
+/* // Keep component imports commented for now
 // Sidebar import is no longer needed
-import MainContent from './components/MainContent';
+import LoadInitial from './components/LoadInitial';
+*/
+import MainContent from './components/MainContent'; // Restore MainContent import
+// Restore other component imports
 import SettingsPage from './components/SettingsPage'; // Import SettingsPage
 import SearchPage from './components/SearchPage'; // Import SearchPage
 import './AppCustomStyles.css';
 
-const { Content } = Layout;
+const { Content } = Layout; // Restore Content destructuring
 
 function App() {
-  const [currentView, setCurrentView] = useState('games'); // State for current view
+  const [currentView, setCurrentView] = useState('games'); // Restore state
 
+  // Restore original layout but without rendering main content components yet
   return (
-    <Layout style={{ minHeight: '100vh' }}> {/* Removed relative positioning */}
-      {/* Removed floating-nav div */}
-
+    <Layout style={{ minHeight: '100vh' }}>
       <Layout className="site-layout">
         <Content
           style={{
-            // Use default padding or adjust via CSS
-            // margin: '16px',
-            // padding: 24,
             minHeight: 280,
-            position: 'relative', // Keep for potential absolute elements inside if needed
+            position: 'relative',
           }}
         >
           {/* Top Toolbar Area */}
@@ -46,14 +47,12 @@ function App() {
             <Space className="top-toolbar-right" />
           </div>
 
-          {/* Main Table Content / Settings Page / Search Page */}
-          {currentView === 'games' && <MainContent />}
-          {currentView === 'settings' && <SettingsPage />}
-          {currentView === 'search' && <SearchPage />} {/* Render SearchPage */}
+          {/* Main Table Content / Settings Page / Search Page - Keep commented */}
+          {currentView === 'games' && <MainContent />} {/* Restore MainContent rendering */}
+          {currentView === 'settings' && <SettingsPage />} {/* Restore SettingsPage rendering */}
+          {currentView === 'search' && <SearchPage />} {/* Restore SearchPage rendering */}
         </Content>
       </Layout>
-
-      {/* Removed bottom-bar div */}
     </Layout>
   );
 }
