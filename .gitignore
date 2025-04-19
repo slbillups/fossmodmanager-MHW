@@ -25,3 +25,4 @@ dist-ssr
 .cursor/**/*
 .cursor/*.mdc
 backup/*
+example_mods/*

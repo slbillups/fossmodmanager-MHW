@@ -1,0 +1,18 @@
+{
+    "236430": {
+      "name": "Monster Hunter: Wilds",
+      "game_slug": "monster-hunter-wilds",
+      "engine": "RE Engine",
+      "mods_config": {
+        "reframework": {
+          "name": "REFramework",
+          "required": true,
+          "download_url": "https://github.com/praydog/REFramework-nightly/releases/download/nightly-000131-uniqueidentifier52ji23gnng2ig/MHWilds.zip",
+          "files_to_extract": [
+            "dinput8.dll",
+            "reframework/"
+          ]
+        }
+      }
+    }
+  }

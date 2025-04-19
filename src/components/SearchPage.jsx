@@ -1,31 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Select, Card, List, Space, Row, Col, Typography, Spin } from 'antd';
 import { AppstoreOutlined, BarsOutlined } from '@ant-design/icons'; // Example icons
+import { invoke } from '@tauri-apps/api/core'; // Added invoke import
+import { open } from '@tauri-apps/plugin-shell'; // <-- Import the open function
 
 const { Title, Text } = Typography;
 const { Meta } = Card;
 
 // Dummy data - replace with actual game data and API calls
 const userGames = [
-  { value: 'ds1', label: 'Dark Souls' },
-  { value: 'ds2', label: 'Dark Souls II' },
-  { value: 'er', label: 'Elden Ring' },
-  { value: 'sekiro', label: 'Sekiro: Shadows Die Twice' },
+  { value: 'darksouls', label: 'Dark Souls' }, // Assuming value is domain name
+  { value: 'darksouls2', label: 'Dark Souls II' }, // Assuming value is domain name
+  { value: 'eldenring', label: 'Elden Ring' }, // Assuming value is domain name
+  { value: 'sekiro', label: 'Sekiro: Shadows Die Twice' }, // Assuming value is domain name
+  { value: 'monsterhunterwilds', label: 'Monster Hunter Wilds' }, // Added for testing
 ];
 
-// Dummy mod data - replace with API call results
-const dummyMods = {
-  ds1: [
-    { id: 'mod1', title: 'DS1 Texture Overhaul', description: 'High-resolution textures for Dark Souls.', imageUrl: 'https://via.placeholder.com/150/FF0000/FFFFFF?text=Mod1' },
-    { id: 'mod2', title: 'Better Combat Mod', description: 'Improves combat mechanics.', imageUrl: 'https://via.placeholder.com/150/00FF00/000000?text=Mod2' },
-  ],
-  er: [
-    { id: 'mod3', title: 'Elden Ring Seamless Co-op', description: 'Play Elden Ring co-op seamlessly.', imageUrl: 'https://via.placeholder.com/150/0000FF/FFFFFF?text=Mod3' },
-    { id: 'mod4', title: 'Performance Boost', description: 'Increases FPS.', imageUrl: 'https://via.placeholder.com/150/FFFF00/000000?text=Mod4' },
-    { id: 'mod5', title: 'New Weapons Pack', description: 'Adds 50 new weapons.', imageUrl: 'https://via.placeholder.com/150/FF00FF/FFFFFF?text=Mod5' },
-  ],
-  // Add more dummy data for other games as needed
-};
+// Dummy mod data - replace with API call results (kept for fallback maybe? or remove)
+// const dummyMods = { ... }; // We might remove this later
 
 const sortOptions = [
   { value: 'default', label: 'Default' },
@@ -45,24 +37,45 @@ function SearchPage() {
   const [sortOrder, setSortOrder] = useState('desc');
   const [mods, setMods] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null); // Add error state
 
-  // Simulate API call when selection changes
+  // Fetch mods from backend when selection changes
   useEffect(() => {
     if (selectedGame) {
       setLoading(true);
-      // Simulate network delay
-      setTimeout(() => {
-        // Fetch mods based on selectedGame, sortBy, sortOrder (implement actual logic later)
-        console.log(`Fetching mods for ${selectedGame}, sort: ${sortBy} ${sortOrder}`);
-        const gameMods = dummyMods[selectedGame] || [];
-        // Add dummy sorting logic here if needed for demo
-        setMods(gameMods);
-        setLoading(false);
-      }, 500);
+      setError(null); // Clear previous errors
+      setMods([]); // Clear previous mods
+
+      console.log(`Invoking fetch_trending_mods for game: ${selectedGame}`);
+
+      invoke('fetch_trending_mods', { gameDomainName: selectedGame })
+        .then(fetchedMods => {
+          console.log('Fetched mods:', fetchedMods);
+          // Map backend data (NexusMod) to frontend structure
+          const mappedMods = fetchedMods.map(mod => ({
+            id: mod.mod_id.toString(), // Ensure ID is string if needed by List key
+            title: mod.name,
+            description: mod.summary || 'No description available.', // Provide fallback
+            // Use picture_url, fallback to a placeholder if missing
+            imageUrl: mod.picture_url || `https://via.placeholder.com/150/808080/FFFFFF?text=${encodeURIComponent(mod.name)}`,
+            // Add other fields if needed, e.g., from mod.version, mod.author etc.
+          }));
+          setMods(mappedMods);
+        })
+        .catch(err => {
+          console.error('Error fetching trending mods:', err);
+          setError(`Failed to fetch mods: ${err}`);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+
     } else {
       setMods([]); // Clear mods if no game is selected
+      setError(null); // Clear error if no game is selected
     }
-  }, [selectedGame, sortBy, sortOrder]);
+    // We don't need sortBy or sortOrder in dependency array yet as V1 trending doesn't use them
+  }, [selectedGame]);
 
   const handleGameChange = (value) => {
     setSelectedGame(value);
@@ -79,6 +92,24 @@ function SearchPage() {
   // Filter options for Select component
   const filterOption = (input, option) =>
     (option?.label ?? '').toLowerCase().includes(input.toLowerCase());
+
+  // Function to handle clicking a mod card
+  const handleCardClick = async (mod) => {
+    if (!selectedGame) {
+      console.error("Cannot open mod page without a selected game.");
+      // Optionally: Show a user-facing error message here
+      return;
+    }
+    const modUrl = `https://www.nexusmods.com/${selectedGame}/mods/${mod.id}`;
+    console.log(`Opening URL: ${modUrl}`);
+    try {
+      await open(modUrl); // Use the imported open function
+    } catch (error) {
+      console.error("Failed to open URL:", error);
+      // Optionally: Show a user-facing error message here
+      setError(`Failed to open mod page: ${error}`); // Display error in the UI
+    }
+  };
 
   return (
     <div style={{ padding: '24px' }}>
@@ -126,15 +157,20 @@ function SearchPage() {
         <div style={{ textAlign: 'center', padding: '50px' }}>
           <Spin size="large" />
         </div>
+      ) : error ? ( // Display error message if an error occurred
+        <div style={{ textAlign: 'center', padding: '50px', color: 'red' }}>
+          <Text type="danger">Error: {error}</Text>
+        </div>
       ) : selectedGame ? (
         <List
           grid={{ gutter: 16, xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 6 }} // Responsive grid
           dataSource={mods}
           renderItem={(mod) => (
-            <List.Item>
+            <List.Item key={mod.id}> {/* Added key prop */}
               <Card
                 hoverable
                 cover={<img alt={mod.title} src={mod.imageUrl} style={{height: 150, objectFit: 'cover'}} />}
+                onClick={() => handleCardClick(mod)} // <-- Add onClick handler here
                 // Add actions like download/view details later
                 // actions={[
                 //   <SettingOutlined key="setting" />,
@@ -146,7 +182,7 @@ function SearchPage() {
               </Card>
             </List.Item>
           )}
-           locale={{ emptyText: 'No mods found for this game.' }}
+           locale={{ emptyText: mods.length === 0 && !loading ? 'No trending mods found for this game.' : ' ' }} // Improved empty text
         />
       ) : (
          <div style={{ textAlign: 'center', padding: '50px', color: 'rgba(255, 255, 255, 0.45)' }}>

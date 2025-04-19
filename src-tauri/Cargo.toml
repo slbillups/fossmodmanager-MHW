@@ -30,11 +30,18 @@ dialoguer = "0.11.0"
 steamlocate = "2.0.1"
 tauri-plugin-dialog = "2.2.1"
 tauri-plugin-os = "2.2.1"
-tauri-plugin-shell = "2.2.1"
 shellexpand = "3.1.1"
 vdf-reader = "0.3.0"
 base64 = "0.22.1"
 reqwest = { version = "0.12.15", features = ["json"] }
+tauri-plugin-shell = "2"
+tauri-plugin-devtools = "2.0.0"
+dotenvy = "0.15.7"
+tokio = "1.44.2"
+futures-util = "0.3.31"
+log = "0.4.27"
+zip = "2.6.1"
+tauri-plugin-log = "2.4.0"
 
 [profile.dev]
 incremental = true

@@ -21,6 +21,6 @@
         }
       ]
     },
-    "dialog:allow-open"
+    "shell:default"
   ]
 }

@@ -1,0 +1,23 @@
+[236430]
+name = "Monster Hunter: Wilds"
+game_slug = "monster-hunter-wilds"
+root_dir = "$ROOT_GAME_PATH"
+mods_dir= "$ROOT_GAME_PATH/fossmodmanager/mods" #this is the default path for mods.
+engine = "RE Engine" #probably do not need this field.
+
+[236430.mods_list] # found mods already installed by the user
+#example:
+#reframework 
+#CatLib
+#MHWilds Overlay
+#Disable Post Processing Effects
+
+[236430.mods_config.reframework]
+name = "REFramework"
+required = true  #not sure if we'll need a required field
+download_url = "https://github.com/praydog/REFramework-nightly/releases/download/nightly-{uniqueidentifier}/MHWilds.zip"
+files_to_extract = [
+    "dinput8.dll",
+    "reframework/"
+]
+

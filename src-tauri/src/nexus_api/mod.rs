@@ -1,159 +1,171 @@
-use serde::{Deserialize, Serialize};
+use dotenvy::dotenv;
 use reqwest;
-use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
-use serde_json::json;
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, ACCEPT, USER_AGENT};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::env;
+use std::time::{Duration, Instant};
+use tokio::sync::Mutex;
 
-// --- Nexus Mods API Structures ---
+// --- Cache Structures ---
 
-// Represents basic game info from the Nexus GraphQL API
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct NexusGame {
-    #[serde(rename = "domainName")] // Matches GraphQL schema field name
-    pub domain_name: String,
-    pub id: i64, // Using i64 for potentially large IDs
-    pub name: String,
-    #[serde(rename = "modCount")]
-    pub mod_count: Option<i64>, // Make optional as it might not always be present/needed
-    #[serde(rename = "tileImageUrl")]
-    pub tile_image_url: Option<String>,
+#[derive(Clone, Debug)]
+pub struct CacheEntry {
+    data: Vec<NexusMod>,
+    timestamp: Instant,
 }
 
-// Represents basic mod info from the Nexus GraphQL API
+// Wrapper struct for the cache state to be managed by Tauri
+#[derive(Default)] // Add default derive for easy initialization
+pub struct ApiCache {
+    // The Mutex is now inside the struct
+    pub cache: Mutex<HashMap<String, CacheEntry>>,
+}
+
+const CACHE_DURATION: Duration = Duration::from_secs(3600);
+
+// --- Nexus Mods API Structures (V1 REST API) ---
+
+// Represents mod info from the Nexus V1 REST API (Trending Endpoint)
+// NOTE: This structure is based on guessing the V1 /trending.json format.
+// It might need adjustment after seeing the actual API response.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct NexusMod {
-    #[serde(rename = "modId")] // Matches GraphQL schema field name
+    // Common fields likely present
     pub mod_id: i64,
     pub name: String,
     pub summary: Option<String>,
     pub version: Option<String>,
-    #[serde(rename = "pictureUrl")]
-    pub picture_url: Option<String>, // URL for the main mod image
-    #[serde(rename = "thumbnailUrl")]
-    pub thumbnail_url: Option<String>,
-    #[serde(rename = "updatedAt")]
-    pub updated_at: Option<String>, // ISO 8601 DateTime String
-    pub endorsements: Option<i64>,
-    pub downloads: Option<i64>,
-    // We might need the game association later if fetching mods without game context
-    // game: Option<NexusGame>,
-}
+    pub picture_url: Option<String>,     // Often the main image
+    pub updated_timestamp: Option<u64>,  // V1 might use timestamps
+    pub endorsements_count: Option<i64>, // Different naming convention?
+    pub total_downloads: Option<i64>,    // Different naming convention?
+    pub total_unique_downloads: Option<i64>,
+    pub author: Option<String>,
+    pub uploaded_timestamp: Option<u64>,
+    pub external_virus_scan_url: Option<String>,
+    // Fields from GraphQL that might map differently or not exist in V1 trending:
+    // pub domain_name: String, // Likely not in mod details in V1 trending
+    // pub thumbnail_url: Option<String>, // Might be same as picture_url or absent
 
-// Structure to hold the paginated response for mods (specifically the 'mods' query result structure)
-#[derive(Serialize, Deserialize, Clone, Debug)]
-struct ModsQueryResult {
-    nodes: Vec<NexusMod>,
-    // We might need PageInfo later for actual pagination
-    // pageInfo: PageInfo,
-    #[serde(rename = "totalCount")]
-    total_count: i64,
-}
-
-// Structure representing the top-level 'data' object in the GraphQL response when querying mods
-#[derive(Serialize, Deserialize, Clone, Debug)]
-struct ModsResponseData {
-    mods: ModsQueryResult,
+    // Fields specific to trending endpoint structure (if any)
+    // Example: pub trend_position: Option<i32>,
 }
 
 // --- End Nexus Mods API Structures ---
 
 // Constants
-const NEXUS_API_URL: &str = "https://api.nexusmods.com/v2/graphql";
-const APP_VERSION: &str = env!("CARGO_PKG_VERSION"); // Get version from Cargo.toml
-const APP_NAME: &str = "fossmodmanager"; // Replace with your actual app name if different
+// const NEXUS_API_URL_GRAPHQL: &str = "https://api.nexusmods.com/v2/graphql"; // Keep if needed later
+const NEXUS_API_URL_V1_BASE: &str = "https://api.nexusmods.com/v1";
+const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+const APP_NAME: &str = "fossmodmanager";
 
-// Helper function to execute a GraphQL query
-async fn execute_query(query: String, variables: Option<HashMap<String, serde_json::Value>>) -> Result<serde_json::Value, String> {
+// Removed execute_query as it was for GraphQL
+
+#[tauri::command]
+pub async fn fetch_trending_mods(
+    game_domain_name: String,
+    state: tauri::State<'_, ApiCache>,
+    // count: Option<u32>, // V1 trending doesn't seem to support count directly
+) -> Result<Vec<NexusMod>, String> {
+    let now = Instant::now();
+
+    // --- Cache Check ---
+    {
+        let cache_map = state.cache.lock().await;
+        if let Some(entry) = cache_map.get(&game_domain_name) {
+            if now.duration_since(entry.timestamp) < CACHE_DURATION {
+                println!(
+                    "Cache hit for game: '{}'. Returning cached data.",
+                    game_domain_name
+                );
+                return Ok(entry.data.clone());
+            }
+            println!(
+                "Cache expired for game: '{}'. Fetching fresh data.",
+                game_domain_name
+            );
+        } else {
+            println!(
+                "Cache miss for game: '{}'. Fetching data.",
+                game_domain_name
+            );
+        }
+    }
+
+    // --- API Fetch (if cache miss or expired) ---
+    println!("Proceeding with API fetch for game: '{}'", game_domain_name);
+
+    // Load environment variables from .env file
+    dotenv().ok(); // Ignore error if .env is not found, API key might be set elsewhere
+
+    // Get API key from environment
+    let api_key = env::var("NEXUS_API_KEY")
+        .map_err(|_| "NEXUS_API_KEY not found in environment variables or .env file".to_string())?;
+
     let client = reqwest::Client::new();
 
-    // Construct headers
-    let mut headers = HeaderMap::new();
-    // Construct the User-Agent string first
-    let user_agent_string = format!("{}/{} (Rust; reqwest)", APP_NAME, APP_VERSION);
-    // Use from_str for non-static strings and handle the Result
-    headers.insert(
-        USER_AGENT, 
-        HeaderValue::from_str(&user_agent_string)
-            .map_err(|e| format!("Invalid User-Agent header value: {}", e))?
+    // Construct the V1 API URL
+    let request_url = format!(
+        "{}/games/{}/mods/trending.json",
+        NEXUS_API_URL_V1_BASE, game_domain_name
     );
-    headers.insert("Application-Name", HeaderValue::from_static(APP_NAME));
-    headers.insert("Application-Version", HeaderValue::from_static(APP_VERSION));
-    // TODO: Add API key header if/when needed
+    println!("Fetching trending mods from: {}", request_url);
 
-    // Construct request body with optional variables
-    let mut body_map = HashMap::new();
-    body_map.insert("query".to_string(), json!(query));
-    if let Some(vars) = variables {
-        body_map.insert("variables".to_string(), json!(vars));
-    }
-    let body = json!(body_map);
+    // Construct headers for V1
+    let mut headers = HeaderMap::new();
+    let user_agent_string = format!("{}/{} (Rust; reqwest)", APP_NAME, APP_VERSION);
+    headers.insert(
+        USER_AGENT,
+        HeaderValue::from_str(&user_agent_string)
+            .map_err(|e| format!("Invalid User-Agent header value: {}", e))?,
+    );
+    headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
+    // Use HeaderName for the custom API key header
+    headers.insert(
+        HeaderName::from_static("apikey"),
+        HeaderValue::from_str(&api_key).map_err(|_| "Invalid API Key format".to_string())?,
+    );
 
     // Send request
     let response = client
-        .post(NEXUS_API_URL)
+        .get(&request_url)
         .headers(headers)
-        .json(&body)
         .send()
         .await
-        .map_err(|e| format!("Nexus API request failed: {}", e))?;
+        .map_err(|e| format!("Nexus API V1 request failed: {}", e))?;
 
     // Check status and parse response
     if response.status().is_success() {
-        response
-            .json::<serde_json::Value>()
-            .await
-            .map_err(|e| format!("Failed to parse Nexus API response: {}", e))
+        let mods = response.json::<Vec<NexusMod>>().await.map_err(|e| {
+            format!(
+                "Failed to parse Nexus API V1 response into Vec<NexusMod>: {}. URL: {}",
+                e, request_url
+            )
+        })?;
+
+        // --- Cache Update ---
+        {
+            let mut cache_map = state.cache.lock().await;
+            println!("Updating cache for game: '{}'", game_domain_name);
+            let new_entry = CacheEntry {
+                data: mods.clone(),
+                timestamp: Instant::now(),
+            };
+            cache_map.insert(game_domain_name.clone(), new_entry);
+        }
+
+        Ok(mods)
     } else {
         let status = response.status();
-        let error_body = response.text().await.unwrap_or_else(|_| "Could not read error body".to_string());
+        let error_body = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Could not read error body".to_string());
         Err(format!(
-            "Nexus API request failed with status {}: {}",
-            status,
-            error_body
+            "Nexus API V1 request failed with status {} at URL {}: {}",
+            status, request_url, error_body
         ))
     }
 }
-
-
-#[tauri::command]
-pub async fn fetch_trending_mods(game_domain_name: String, count: Option<u32>) -> Result<Vec<NexusMod>, String> {
-    let mod_count = count.unwrap_or(30); // Default to 30 mods
-
-    // Define the GraphQL query string with placeholders
-    let query = r#"
-        query GetTrendingMods($gameDomain: String!, $count: Int!) {
-            mods(filter: { gameDomainName: { value: $gameDomain, op: EQUALS } }, sort: [{ endorsements: { direction: DESC } }], count: $count) {
-                nodes {
-                    modId
-                    name
-                    summary
-                    version
-                    pictureUrl
-                    thumbnailUrl
-                    updatedAt
-                    endorsements
-                    downloads
-                }
-                totalCount
-            }
-        }
-    "#.to_string();
-
-    // Define the variables map
-    let mut variables = HashMap::new();
-    variables.insert("gameDomain".to_string(), json!(game_domain_name));
-    variables.insert("count".to_string(), json!(mod_count));
-
-    // Execute the query
-    let response_json = execute_query(query, Some(variables)).await?;
-
-    // Deserialize the response
-    // We expect the structure { "data": { "mods": { "nodes": [...], "totalCount": ... } } }
-    let response_data: ModsResponseData = serde_json::from_value(response_json["data"].clone())
-        .map_err(|e| format!("Failed to deserialize Nexus Mods response: {}. Response JSON: {}", e, response_json))?;
-
-    Ok(response_data.mods.nodes)
-}
-
-// TODO: Add execute_query helper function
-// TODO: Add fetch_trending_mods command function 
+// Removed GraphQL related TODOs

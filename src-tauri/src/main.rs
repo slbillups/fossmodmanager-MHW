@@ -2,5 +2,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
+    // Call the library's run function directly
     fossmodmanager_lib::run()
 }
