@@ -1,360 +1,307 @@
-import React, { useState, useEffect } from 'react';
-import { Table, Tag, Checkbox, Button, Space, Tooltip, Avatar, notification, Popconfirm, Spin } from 'antd';
-import { open } from '@tauri-apps/plugin-dialog';
-import { FolderOpenOutlined, QuestionCircleOutlined, ExclamationCircleOutlined, PlusOutlined, DeleteOutlined, PlusSquareOutlined, MinusSquareOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Button, notification, Spin, Typography, List, Card, Tag, message } from 'antd';
+import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
-import LocalMods from './LocalMods';
-import { Link } from 'react-router-dom';
+import { useGameConfig } from '../contexts/GameConfigContext';
 
-// Define columns based on original HTML table
-const getColumns = (fetchGameList, setLoading) => [
-  {
-    title: 'Game',
-    dataIndex: 'game_name',
-    key: 'game_name',
-    // Render the game name AND cover art
-    render: (text, record) => (
-      <Space>
-        <Avatar
-            shape="square"
-            size={48} // Slightly larger avatar for cover art
-            src={record.cover_art_data_url} // Use the field name from backend struct
-            icon={<QuestionCircleOutlined />} // Fallback icon
-        />
-        <span>{text}</span>
-      </Space>
-    ),
-  },
-  {
-    title: 'Build ID',
-    dataIndex: 'version', // Now maps to buildid/version
-    key: 'version',
-  },
-  {
-    title: 'Game Root Path',
-    dataIndex: 'game_root_path', // Use the field name from backend struct
-    key: 'game_root_path',
-    render: (path) => (
-      <Tooltip title={path}> {/* Show full path in tooltip */}
-        <span style={{ cursor: 'default' }}> {/* Use span instead of Button */}
-          {/* Truncate paths to the last 3 directories */}
-          {path.split('/').slice(-3).join('/')}
-        </span>
-      </Tooltip>
-    ),
-  },
-  {
-    title: 'Actions',
-    key: 'actions',
-    align: 'center',
-    width: 80, // Adjust width as needed
-    render: (_, record) => (
-      <Popconfirm
-        title="Remove Game?"
-        description={`Are you sure you want to remove ${record.game_name}? This cannot be undone.`}
-        onConfirm={() => handleRemoveGame(record.appid, record.game_name, fetchGameList, setLoading)}
-        okText="Yes, Remove"
-        cancelText="No"
-      >
-        <Tooltip title="Remove Game">
-          <Button 
-            danger 
-            icon={<DeleteOutlined />} 
-            size="small" 
-            type="text" // Use text type for a less prominent button
-            // Prevent row click expansion when clicking the button
-            onClick={(e) => e.stopPropagation()} 
-          />
-        </Tooltip>
-      </Popconfirm>
-    ),
-  },
-];
+const { Title, Text, Paragraph } = Typography;
 
-// Remove mock game data (data)
-
-// --- TODO: Add Mod Table Data & Expansion Logic --- 
-// Mock mod data structure (keyed by game appid - needs adjustment)
-/* REMOVE_START
-const modData = {
-  // Example using appid (assuming Dark Souls is 211420, DS2 is 236430)
-  '211420': [
-    { key: 'mod1', thumbUrl: '/placeholderimages/ds.jpg', name: 'DSFix', description: 'Graphics fixes and frame rate unlock.', needsUpdate: true },
-    { key: 'mod2', thumbUrl: null, name: 'PVP Watchdog', description: 'Helps detect and manage online cheaters.', needsUpdate: false },
-  ],
-  '236430': [
-    { key: 'mod3', thumbUrl: '/placeholderimages/ds2.jpg', name: 'GeDoSaTo', description: 'Advanced graphics tool (downsampling, etc.).', needsUpdate: false },
-  ],
-  // Add entries for other potential games by appid
-};
-REMOVE_END */
-const modData = {}; // TEMPORARY: Empty object to prevent crashes until proper fetching is implemented
-
-// Columns for the inner mod table
-const modColumns = [
-  {
-    dataIndex: 'name',
-    key: 'name',
-    render: (text, record) => (
-      <Space>
-        <Avatar shape="square" size="large" icon={<QuestionCircleOutlined />} src={record.thumbUrl} />
-        <div>
-          <div>{text}</div>
-          <div style={{ color: '#888', fontSize: '0.9em' }}>{record.description}</div>
-        </div>
-      </Space>
-    )
-  },
-  {
-    title: 'Update? ', // Keep consistent with game table
-    dataIndex: 'needsUpdate',
-    key: 'needsUpdate',
-    render: (needsUpdate) => (
-      needsUpdate 
-        ? <ExclamationCircleOutlined style={{ color: 'orange' }} /> 
-        : null
-    ),
-    align: 'center',
-    width: 100, // Give it a fixed width
-  },
-];
-
-const MainContent = () => {
-  const [gameData, setGameData] = useState([]);
-  const [expandedRowKeys, setExpandedRowKeys] = useState([]);
-  const [loading, setLoading] = useState(false); // State for loading indicator
-
-  // Function to fetch game list
-  const fetchGameList = async () => {
-    setLoading(true);
+// --- Setup Overlay Component ---
+const SetupOverlay = ({ onSetupComplete }) => {
+  const handleSetup = async () => {
     try {
-      // Call the renamed backend command
-      const games = await invoke('load_game_list');
-      // console.log('[DEBUG] Raw data from load_game_list:', JSON.stringify(games)); // Log raw data - REMOVE
-      // console.log("Fetch completed, data received."); // Log completion - REMOVE
-
-      // --- Restore data processing and state update ---
-      // Prepare data for the table, using appid as the key
-      const formattedData = games.map(game => ({
-        ...game,
-        key: game.appid, // Use appid from backend as the unique key
-        // Add needsUpdate placeholder if needed later
-        needsUpdate: false,
-      }));
-
-      // console.log('[DEBUG] Formatted data before setState:', JSON.stringify(formattedData)); // Log formatted data - REMOVE
-
-      setGameData(formattedData);
-      // --- End of restoring ---
-
-    } catch (error) {
-      console.error('Error loading game list:', error);
-      notification.error({ message: 'Error Loading Games', description: String(error) });
-      setGameData([]); // Clear data on error
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Effect to load game list on mount
-  useEffect(() => {
-    // fetchGameList(); // TEMPORARILY DISABLED
-    fetchGameList(); // Re-enable the call
-  }, []); // Empty dependency array ensures this runs only once on mount
-
-  // Handler to add a new game
-  const handleAddGame = async () => {
-    try {
-      // Open file dialog to select executable
-      const selectedPath = await open({
+      const selectedPath = await openDialog({
         multiple: false,
-        // Add filters for common executable types if desired
-        // filters: [{ name: 'Executable', extensions: ['exe', 'bat', 'sh'] }]
-        title: 'Select Game Executable',
+        title: 'Select MonsterHunterWilds.exe',
+        filters: [{ name: 'Executable', extensions: ['exe'] }]
       });
 
-      if (selectedPath) {
+      if (selectedPath && typeof selectedPath === 'string') {
         console.log('Selected executable:', selectedPath);
-        setLoading(true);
-        // Invoke the backend command to add the game
-        const newGameData = await invoke('add_game', { executablePath: selectedPath });
-        console.log('Added game data:', newGameData);
-
-        // Add the new game to the state
-        setGameData(prevData => [
-            ...prevData,
-            { ...newGameData, key: newGameData.appid, needsUpdate: false }
-        ]);
-        notification.success({ message: 'Game Added', description: `${newGameData.game_name} added successfully.` });
-
+        await invoke('finalize_setup', { executablePath: selectedPath });
+        notification.success({
+          message: 'Setup Complete',
+          description: 'Configuration saved successfully.',
+          duration: 2
+        });
+        onSetupComplete();
       } else {
-        console.log('No file selected.');
+        console.log('No file selected or dialog cancelled.');
       }
     } catch (error) {
-      console.error('Error adding game:', error);
-      // Display specific error from backend if available
-      const errorMessage = typeof error === 'string' ? error : 'Failed to add game. Check console for details.';
-      notification.error({ message: 'Error Adding Game', description: errorMessage });
-    } finally {
-      setLoading(false);
+      console.error('Error during setup:', error);
+      const errorMessage = typeof error === 'string' ? error : 'Failed to complete setup. Check console for details.';
+      notification.error({ message: 'Setup Error', description: errorMessage });
     }
   };
-
-  // --- Helper function for remove game action ---
-  const handleRemoveGame = async (appid, gameName, fetchGameList, setLoading) => {
-    console.log(`Attempting to remove game: ${gameName} (AppID: ${appid})`);
-    setLoading(true); // Indicate loading state
-    try {
-        await invoke('remove_game', { appid });
-        notification.success({ 
-            message: 'Game Removed', 
-            description: `${gameName} has been removed from the list.` 
-        });
-        fetchGameList(); // Refresh the list after successful removal
-    } catch (error) {
-        console.error('Error removing game:', error);
-        const errorMessage = typeof error === 'string' ? error : 'Failed to remove game. See console for details.';
-        notification.error({ message: 'Error Removing Game', description: errorMessage });
-        setLoading(false); // Ensure loading is turned off on error
-    }
-    // setLoading(false) will be called by fetchGameList() in the success case
-  };
-
-  // Function to render the expanded row content (the mod table)
-  // Rewrite as a small component to manage its own state for fetching mods
-  const ExpandedModList = ({ gameRecord }) => {
-    const [mods, setMods] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState(null);
-
-    useEffect(() => {
-      const fetchMods = async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-          // Placeholder backend call - replace 'fetch_mods_for_game' with actual command
-          // TEMPORARILY COMMENTED OUT TO SHOW PLACEHOLDER
-          // const fetchedMods = await invoke('fetch_mods_for_game', { appid: gameRecord.appid });
-          const fetchedMods = []; // Simulate successful empty fetch
-
-          // --- TODO: Adapt fetchedMods structure if needed --- 
-          // Assuming fetchedMods is an array like the old modData values
-          setMods(fetchedMods || []); 
-        } catch (err) {
-          console.error(`Error fetching mods for ${gameRecord.game_name}:`, err);
-          setError('Failed to load mods.');
-          setMods([]); // Clear mods on error
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      fetchMods();
-    }, [gameRecord.appid]); // Re-fetch if appid changes (shouldn't happen often here)
-
-    if (isLoading) {
-      return <div style={{ padding: '12px', textAlign: 'center' }}><Spin /> Loading mods...</div>;
-    }
-
-    if (error) {
-        return <div style={{ padding: '12px', color: 'red' }}>Error: {error}</div>;
-    }
-
-    if (mods.length === 0) {
-        // Display placeholder message when no mods are found
-        return (
-            <div style={{ display: 'flex', alignItems: 'center', padding: '12px', gap: '12px' }}>
-                <Avatar 
-                    shape="square" 
-                    size={62} // Larger avatar for the message
-                    src="/images/nomodfound.jpg" // Path to your placeholder image - CORRECTED EXTENSION
-                    icon={<QuestionCircleOutlined />} // Fallback icon
-                />
-                <span style={{ color: '#888' }}>
-                    No mods found... please check the <Link to="/search">Search Page</Link>, nexusmods.com or your preferred site and place them in the mods directory!
-                    {/* TODO: Link to searchPage.jsx if/when implemented - Now implemented via Link */}
-                </span>
-            </div>
-        );
-    }
-
-    // Render the table if mods are found
-    return <Table columns={modColumns} dataSource={mods} pagination={false} size="small" showHeader={false} />;
-  };
-
-  // Handler for row clicks to manage expansion
-  const handleRowClick = (record) => {
-    const currentKey = record.key; // key is now appid
-    // Always toggle expansion - the ExpandedModList component handles fetching/display
-    setExpandedRowKeys(prevKeys =>
-      prevKeys.includes(currentKey)
-        ? prevKeys.filter(k => k !== currentKey)
-        : [...prevKeys, currentKey]
-    );
-  };
-
-  // --- Get columns definition by calling the function ---
-  const columns = getColumns(fetchGameList, setLoading);
 
   return (
-    // Add a relative container to position the button against
-    <div className="main-content-container" style={{ position: 'relative', minHeight: 'calc(100vh - 150px)' }}> {/* Adjust minHeight as needed */} 
-      <Table
-        columns={columns}
-        dataSource={gameData}
-        pagination={false}
-        loading={loading} // Show loading indicator on table
-        expandable={{
-          // Pass the gameRecord to the ExpandedModList component
-          expandedRowRender: (record) => <ExpandedModList gameRecord={record} />,
-          // Always allow rows to be expandable visually
-          rowExpandable: () => true, 
-          expandedRowKeys: expandedRowKeys,
-          // --- Add custom expandIcon ---
-          expandIcon: ({ expanded, onExpand, record }) => {
-            // Always render the icon 
-            const IconComponent = expanded ? MinusSquareOutlined : PlusSquareOutlined;
-            return (
-              <IconComponent
-                onClick={(e) => {
-                  // Explicitly call our row click handler
-                  handleRowClick(record); 
-                  // Prevent the click from bubbling up to the onRow handler
-                  e.stopPropagation(); 
-                }}
-                style={{ cursor: 'pointer', marginRight: 8 }} // Add margin like default
-              />
-            );
-          }
-          // --- End custom expandIcon ---
-        }}
-        onRow={(record) => ({
-          onClick: (event) => {
-            // Prevent row click if button inside row was clicked
-            if (event.target.closest('button')) return;
-            handleRowClick(record);
-          },
-          style: {
-            // Always show pointer cursor as rows are always expandable
-            cursor: 'pointer' 
-          }
-        })}
-      />
-      {/* Removed the bespoke update button for now */}
-      {/* {isUpdateNeeded && ( ... ) } */}
-
-      {/* Moved Add Game Button outside table, apply positioning class */}
-      <div className="add-game-button-container">
-         <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={handleAddGame}
-            loading={loading}
-         >
-            Add Game
-         </Button>
+    <div className="setup-overlay">
+      <img src="/images/splashscreen.png" alt="Setup Background" className="setup-background-image" />
+      <div className="setup-button-container">
+        <Button type="text" onClick={handleSetup} className="setup-start-button">
+          <span className="firstrun-add-path">Please select your game's executable.</span>
+        </Button>
       </div>
-    </div> // Close the relative container div
+      <style jsx>{`
+        .setup-overlay {
+          position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+          display: flex; justify-content: center; align-items: flex-end;
+          z-index: 1000; cursor: default;
+        }
+        .setup-background-image {
+          position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+          object-fit: cover; z-index: -1;
+        }
+        .setup-button-container { margin-bottom: 5vh; z-index: 1; }
+        .setup-start-button {
+          background-color: transparent !important; border: none !important;
+          color: #90ee90 !important; padding: 10px 20px; font-size: 1.2em;
+          font-family: 'CrimsonText-SemiBold', sans-serif; cursor: pointer;
+          box-shadow: none !important; line-height: normal;
+        }
+        .setup-start-button:hover {
+          color: #c1ffc1 !important; background-color: rgba(255, 255, 255, 0.1) !important;
+        }
+      `}</style>
+    </div>
+  );
+};
+
+// --- Main Content Component (Refactored) ---
+const MainContent = () => {
+  const { gameConfig, isLoading: isConfigLoading, error: configError, fetchGameConfig } = useGameConfig();
+
+  const [installedMods, setInstalledMods] = useState([]);
+  const [isModsLoading, setIsModsLoading] = useState(false);
+  const [modsError, setModsError] = useState(null);
+  const [isInstalling, setIsInstalling] = useState(false);
+
+  const fetchMods = useCallback(async () => {
+    if (!gameConfig) {
+        console.log("fetchMods: No gameConfig yet.");
+        return;
+    }
+
+    setIsModsLoading(true);
+    setModsError(null);
+    console.log("Attempting to invoke list_mods...");
+    try {
+      const mods = await invoke('list_mods', { gameRootPath: gameConfig.game_root_path });
+      console.log("Loaded mods:", mods);
+      setInstalledMods(mods || []);
+    } catch (err) {
+      console.error('Error loading mods list:', err);
+      const errorMsg = typeof err === 'string' ? err : (err.message || 'Unknown error');
+      setModsError(`Failed to load mods list: ${errorMsg}`);
+      notification.error({
+        message: 'Mod List Error',
+        description: `Failed to load mods: ${errorMsg}`,
+        duration: 4
+      });
+      setInstalledMods([]);
+    } finally {
+      setIsModsLoading(false);
+    }
+  }, [gameConfig]);
+
+  useEffect(() => {
+    if (gameConfig) {
+      console.log("useEffect: gameConfig available, calling fetchMods.");
+      fetchMods();
+    }
+    if (!gameConfig) {
+        console.log("useEffect: gameConfig is null, clearing installedMods.");
+        setInstalledMods([]);
+    }
+  }, [gameConfig, fetchMods]);
+
+  const getFilename = (fullPath) => {
+    if (!fullPath) return 'unknown file';
+    const lastSlash = fullPath.lastIndexOf('/');
+    const lastBackslash = fullPath.lastIndexOf('\\');
+    const lastSeparator = Math.max(lastSlash, lastBackslash);
+    return lastSeparator === -1 ? fullPath : fullPath.substring(lastSeparator + 1);
+  };
+
+  const handleInstallModFromZip = async () => {
+    if (!gameConfig?.game_root_path) {
+      notification.error({
+        message: 'Error',
+        description: 'Game configuration not loaded. Cannot install mods.',
+      });
+      return;
+    }
+
+    try {
+      const selectedPaths = await openDialog({
+        multiple: true,
+        title: 'Select Mod Zip File(s)',
+        filters: [{ name: 'Zip Archives', extensions: ['zip'] }],
+      });
+
+      if (selectedPaths && selectedPaths.length > 0) {
+        setIsInstalling(true);
+        const installPromises = selectedPaths.map(async (zipPath) => {
+          try {
+            console.log(`Invoking install_mod_from_zip for: ${zipPath}`);
+            await invoke('install_mod_from_zip', {
+              zipPathStr: zipPath,
+              gameRootPath: gameConfig.game_root_path,
+            });
+            message.success(`Successfully installed mod from ${getFilename(zipPath)}`);
+            return { path: zipPath, success: true };
+          } catch (error) {
+            console.error(`Error installing mod from ${zipPath}:`, error);
+            const errorMsg = typeof error === 'string' ? error : (error.message || 'Unknown error during installation');
+            notification.error({
+              message: 'Installation Error',
+              description: `Failed to install mod from ${getFilename(zipPath)}: ${errorMsg}`,
+              duration: 5
+            });
+            return { path: zipPath, success: false, error: errorMsg };
+          }
+        });
+
+        const results = await Promise.allSettled(installPromises);
+        console.log('Installation results:', results);
+
+        const successfulInstalls = results.some(result => result.status === 'fulfilled' && result.value.success);
+        if (successfulInstalls) {
+          console.log("Install successful, calling fetchMods to refresh list.");
+          fetchMods();
+        }
+
+      } else {
+        console.log('No zip files selected.');
+      }
+    } catch (error) {
+      console.error('Error opening file dialog:', error);
+      notification.error({
+        message: 'Dialog Error',
+        description: 'Failed to open file selection dialog.',
+      });
+    } finally {
+        setIsInstalling(false);
+    }
+  };
+
+  // --- New Handler: Toggle Mod Enabled/Disabled ---
+  const handleToggleMod = async (modName, currentStatus) => {
+      if (!gameConfig?.game_root_path) {
+          message.error('Game config not loaded.');
+          return;
+      }
+
+      const enable = !currentStatus;
+      const actionText = enable ? 'Enabling' : 'Disabling';
+      message.loading({ content: `${actionText} mod '${modName}'...`, key: 'toggleMod' });
+
+      try {
+          await invoke('toggle_mod_enabled_state', {
+              gameRootPath: gameConfig.game_root_path,
+              modName: modName,
+              enable: enable,
+          });
+          message.success({ content: `Mod '${modName}' ${enable ? 'enabled' : 'disabled'}.`, key: 'toggleMod', duration: 2 });
+          // Refresh the list after successful toggle
+          fetchMods();
+      } catch (err) {
+          console.error(`Error toggling mod ${modName}:`, err);
+          const errorMsg = typeof err === 'string' ? err : (err.message || 'Unknown error');
+          message.error({ content: `Failed to toggle mod '${modName}': ${errorMsg}`, key: 'toggleMod', duration: 4 });
+      }
+  };
+  // --- End New Handler ---
+
+  if (isConfigLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 'calc(100vh - 150px)' }}>
+        <Spin size="large" tip="Loading Configuration..." />
+      </div>
+    );
+  }
+
+  if (!configError && gameConfig === null) {
+    return <SetupOverlay onSetupComplete={fetchGameConfig} />;
+  }
+
+  if (configError) {
+    return (
+      <div style={{ padding: '24px', color: 'red', textAlign: 'center' }}>
+        <Title level={4} style={{ color: 'red' }}>Configuration Error</Title>
+        <Text type="danger">{configError}</Text>
+        <br />
+        <Text type="secondary">(Check context logs or restart. Ensure 'load_game_config' exists)</Text>
+        <Button onClick={fetchGameConfig} style={{ marginTop: '16px' }}>Retry Load Config</Button>
+      </div>
+    );
+  }
+
+  if (!isConfigLoading && !configError && gameConfig) {
+    return (
+      <div className="main-content-container" style={{ padding: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+           <Title level={4} style={{ marginBottom: 0 }}>Installed Mods</Title>
+           <div className="modinstall-button-container">
+                <Button
+                    onClick={handleInstallModFromZip}
+                    loading={isInstalling}
+                    type="primary"
+                    style={{ marginRight: '8px' }}
+                >
+                    Install Mod from Zip
+                </Button>
+                <Button onClick={fetchMods} loading={isModsLoading}>
+                    Refresh List
+                </Button>
+           </div>
+        </div>
+
+        {isModsLoading && !modsError && (
+             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
+                <Spin tip="Loading Mods..."></Spin>
+             </div>
+        )}
+
+        {modsError && (
+            <div style={{ color: 'orange', marginBottom: '10px', padding: '15px', border: '1px solid orange', borderRadius: '4px', textAlign: 'center' }}>
+                <Text type="warning">Error loading mods: {modsError}</Text>
+                <Button size="small" onClick={fetchMods} style={{ marginLeft: '8px' }}>Retry</Button>
+            </div>
+        )}
+
+        {!isModsLoading && !modsError && (
+            <List
+                grid={{ gutter: 16, xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 6 }}
+                dataSource={installedMods}
+                locale={{ emptyText: 'No mods installed yet. Use the "Install Mod from Zip" button to add some!' }}
+                renderItem={(mod) => (
+                    <List.Item>
+                        <Card
+                            title={mod.name || mod.directory_name}
+                            size="small"
+                        >
+                             <Tag
+                                 color={mod.enabled ? 'green' : 'red'}
+                                 style={{ marginTop: '8px', cursor: 'pointer' }}
+                                 onClick={() => handleToggleMod(mod.directory_name, mod.enabled)}
+                             >
+                                {mod.enabled ? 'Enabled' : 'Disabled'}
+                             </Tag>
+                        </Card>
+                    </List.Item>
+                )}
+            />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: '24px', textAlign: 'center' }}>
+      <Text type="secondary">Waiting for configuration or encountering unexpected state...</Text>
+    </div>
   );
 };
 

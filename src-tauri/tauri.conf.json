@@ -38,7 +38,138 @@
           "Application-Website": "https://github.com/slbillups/fossmodmanager",
           "Application-Description": "A mod manager for FossMods"
         }
-      }
+      },
+      "capabilities": [
+        {
+          "identifier": "main-capability",
+          "description": "Core application capabilities",
+          "windows": ["main"],
+          "permissions": [
+            "core:path:default",
+            "core:app:default",
+            "core:window:allow-close",
+            "core:window:allow-show",
+            "core:window:allow-hide",
+            "core:window:allow-set-focus",
+            "core:webview:allow-internal-toggle-devtools",
+            "dialog:allow-open",
+            "dialog:allow-message",
+            "fs:allow-exists",
+            "fs:allow-mkdir",
+            "fs:allow-read-dir",
+            "opener:allow-open-path",
+            "http:default",
+            {
+              "identifier": "http:allow-fetch",
+              "allow": ["https://api.nexusmods.com/*", "https://api.github.com/*"]
+            }
+          ]
+        },
+        {
+          "identifier": "fs-read-config",
+          "description": "Allows reading the application config file.",
+          "windows": ["main"],
+          "permissions": [
+            "core:path:default",
+            {
+              "identifier": "fs:allow-read-file",
+              "scope": { "allow": ["$APPCONFIG/userconfig.json"] }
+            }
+          ]
+        },
+        {
+          "identifier": "fs-write-config",
+          "description": "Allows writing the application config file.",
+          "windows": ["main"],
+          "permissions": [
+            "core:path:default",
+            {
+              "identifier": "fs:allow-write-file",
+              "scope": { "allow": ["$APPCONFIG/userconfig.json"] }
+            }
+          ]
+        },
+        {
+          "identifier": "fs-delete-config",
+          "description": "Allows deleting the application config file.",
+          "windows": ["main"],
+          "permissions": [
+            "core:path:default",
+            {
+              "identifier": "fs:allow-remove",
+              "scope": { "allow": ["$APPCONFIG/userconfig.json"] }
+            }
+          ]
+        },
+        {
+          "identifier": "fs-read-modlist",
+          "description": "Allows reading the application mod list file.",
+          "windows": ["main"],
+          "permissions": [
+            "core:path:default",
+            {
+              "identifier": "fs:allow-read-file",
+              "scope": { "allow": ["$APPCONFIG/modlist.json"] }
+            }
+          ]
+        },
+        {
+          "identifier": "fs-write-modlist",
+          "description": "Allows writing the application mod list file.",
+          "windows": ["main"],
+          "permissions": [
+            "core:path:default",
+            {
+              "identifier": "fs:allow-write-file",
+              "scope": { "allow": ["$APPCONFIG/modlist.json"] }
+            },
+            {
+              "identifier": "fs:allow-mkdir",
+              "scope": { "allow": ["$APPCONFIG"] }
+            }
+          ]
+        },
+        {
+          "identifier": "fs-read-mods",
+          "description": "Allows reading game directory structure to check mod status.",
+          "windows": ["main"],
+          "permissions": [
+             "core:path:default",
+            {
+              "identifier": "fs:allow-exists",
+              "scope": { "allow": ["$HOME/**"] }
+            }
+          ]
+        },
+        {
+          "identifier": "fs-install-mod",
+          "description": "Allows reading mod zip files and extracting/writing them to the game directory.",
+          "windows": ["main"],
+          "permissions": [
+            "core:path:default",
+            {
+              "identifier": "fs:allow-read-file",
+              "scope": { "allow": ["$DOWNLOAD/**.zip", "$DESKTOP/**.zip", "$DOCUMENT/**.zip", "$HOME/**.zip"] }
+            },
+             {
+              "identifier": "fs:allow-read-dir",
+              "scope": { "allow": ["$HOME/**"] }
+            },
+            {
+              "identifier": "fs:allow-write-file",
+              "scope": { "allow": ["$HOME/**"] }
+            },
+            {
+              "identifier": "fs:allow-mkdir",
+              "scope": { "allow": ["$HOME/**"] }
+            },
+            {
+              "identifier": "fs:allow-remove",
+              "scope": { "allow": ["$HOME/**"] }
+            }
+          ]
+        }
+      ]
     }
   },
   "bundle": {
@@ -53,34 +184,6 @@
     ]
   },
   "plugins": {
-    "permissions": [
-      {
-        "identifier": "main-capability",
-        "description": "Core application capabilities",
-        "permissions": [
-          "path:default",
-          "app:default",
-          "window:allow-close",
-          "window:allow-show",
-          "window:allow-hide",
-          "window:allow-set-focus",
-          "webview:allow-open-devtools",
-          "dialog:allow-open",
-          "dialog:allow-message",
-          "fs:scope-allow-any",
-          "fs:allow-exists",
-          "fs:allow-create_dir",
-          "fs:allow-read_dir", 
-          "fs:allow-read_file",
-          "store:default",
-          "opener:allow-open",
-          "http:default",
-          {
-            "identifier": "http:allow-fetch", 
-            "allow": ["https://api.nexusmods.com/*"]
-          }
-        ]
-      }
-    ]
+
   }
 }

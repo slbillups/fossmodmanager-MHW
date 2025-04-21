@@ -1,18 +1,27 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
+  "identifier": "desktop-capability",
   "description": "This program allows access to the steam filesystem as well as the $HOME/.config/fossmodmanager directory and $APPDATA/fossmodmanager directory as well as the $HOME/.config/fossmodmanager directory and $APPDATA/fossmodmanager directory",
   "windows": [
     "main",
     "setup"
   ],
   "permissions": [
-    "core:default",
-    "core:app:allow-fetch-data-store-identifiers",
-    "http:allow-fetch",
-    "opener:default",
-    "fs:default",
-    "store:default",
+    "core:path:default",
+    "core:app:default",
+    "core:window:allow-close",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-focus",
+    "core:webview:allow-internal-toggle-devtools",
+    "dialog:allow-open",
+    "dialog:allow-message",
+    "fs:allow-exists",
+    "fs:allow-remove",
+    "fs:allow-mkdir",
+    "fs:allow-read-dir",
+    "opener:allow-open-path",
+    "http:default",
     {
       "identifier": "fs:allow-exists",
       "allow": [

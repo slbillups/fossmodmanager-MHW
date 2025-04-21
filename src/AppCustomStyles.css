@@ -7,6 +7,12 @@ body {
   padding: 0; /* Remove default body padding */
 }
 
+@font-face {
+  font-family: 'CrimsonText-SemiBold';
+  src: url('./fonts/CrimsonText-SemiBold.ttf') format('truetype');
+}
+
+
 .site-layout {
   /* position: relative; */ /* Likely not needed anymore */
 }
