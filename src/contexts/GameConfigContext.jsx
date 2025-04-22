@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useCallback, useContext } fr
 import { invoke } from '@tauri-apps/api/core';
 
 // Create the context
-const GameConfigContext = createContext(null);
+export const GameConfigContext = createContext(null);
 
 // Create a provider component
 export const GameConfigProvider = ({ children }) => {

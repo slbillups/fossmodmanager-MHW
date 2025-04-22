@@ -13,213 +13,12 @@ use reqwest;
 use zip;
 use regex::Regex;
 use once_cell::sync::Lazy;
+use tokio::sync::Mutex; // For async mutex if needed later
 
 mod utils;
-use utils::config::{finalize_setup, load_game_config, delete_config};
-
-// Helper function to find the game root and steamapps directories
-// fn find_game_paths_from_exe(executable_path_str: &str) -> Result<(PathBuf, PathBuf), String> {
-//     let executable_path = PathBuf::from(executable_path_str);
-
-//     if !executable_path.is_file() {
-//         return Err(format!(
-//             "Provided path is not a file or does not exist: {}",
-//             executable_path_str
-//         ));
-//     }
-
-//     let mut current_path = executable_path.parent().ok_or_else(|| {
-//         format!(
-//             "Could not get parent directory of executable: {}",
-//             executable_path_str
-//         )
-//     })?;
-
-//     loop {
-//         let parent_path = current_path.parent().ok_or_else(|| {
-//             format!(
-//                 "Reached filesystem root without finding 'steamapps/common' structure starting from: {}",
-//                 executable_path_str
-//             )
-//         })?;
-
-//         let parent_dir_name = parent_path
-//             .file_name()
-//             .and_then(|name| name.to_str())
-//             .ok_or_else(|| format!("Could not get parent directory name for: {:?}", parent_path))?;
-
-//         if parent_dir_name == "common" {
-//             let grandparent_path = parent_path.parent().ok_or_else(|| {
-//                 format!(
-//                     "Found 'common' but no parent directory above it: {:?}",
-//                     parent_path
-//                 )
-//             })?;
-
-//             let grandparent_dir_name = grandparent_path
-//                 .file_name()
-//                 .and_then(|name| name.to_str())
-//                 .ok_or_else(|| {
-//                     format!(
-//                         "Could not get grandparent directory name for: {:?}",
-//                         grandparent_path
-//                     )
-//                 })?;
-
-//             if grandparent_dir_name == "steamapps" {
-//                 // Success! current_path is game root, grandparent_path is steamapps
-//                 return Ok((current_path.to_path_buf(), grandparent_path.to_path_buf()));
-//             }
-//         }
-
-//         if current_path == parent_path {
-//             return Err(format!(
-//                 "Path resolution stopped unexpectedly at: {:?}. Could not find 'steamapps/common' structure.",
-//                 current_path
-//             ));
-//         }
-//         current_path = parent_path;
-//     }
-// }
-
-// Helper function to parse ACF using vdf-reader crate
-
-// Helper function to get cover art data URL - Updated Logic
-
-// Command to finalize setup, write config, and potentially handle window logic
-// #[tauri::command]
-// async fn finalize_setup(
-//     window: WebviewWindow, // Keep window arg if still needed for closing setup window
-//     app_handle: AppHandle,
-//     executable_path: String,
-// ) -> Result<(), String> {
-//     // Use find_game_paths_from_exe to get game root and exe path buf
-//     let (game_root_path_buf, _) = find_game_paths_from_exe(&executable_path)?; // Keep _ if exe path buf not needed here
-//     let game_root_path_str = game_root_path_buf.to_str().ok_or("Game root path contains invalid UTF-8")?.to_string();
-
-//     println!("Selected Executable: {}", executable_path);
-//     println!("Determined Game Root: {}", game_root_path_str);
-
-//     // --- Create necessary directories ---
-//     let fossmodmanager_path = game_root_path_buf.join("fossmodmanager");
-//     let mods_path = fossmodmanager_path.join("mods");
-//     fs::create_dir_all(&mods_path)
-//         .map_err(|e| format!("Failed to create mods directory {:?}: {}", mods_path, e))?;
-//     println!("Ensured directory exists: {:?}", mods_path);
-//     // ------------------------------------
+use utils::config::{validate_game_installation, save_game_config, load_game_config, delete_config};
 
 
-//     // --- Persist the game data to userconfig.json ---
-//     let config_dir = app_handle.path()
-//         .app_config_dir()
-//         .map_err(|e| format!("Failed to get app config dir: {}", e))?;
-
-//     // Ensure the config directory exists
-//     fs::create_dir_all(&config_dir)
-//         .map_err(|e| format!("Failed to create config directory {:?}: {}", config_dir, e))?;
-
-//     let config_path = config_dir.join("userconfig.json");
-
-//     // Create the simplified game data entry
-//     let game_data = GameData {
-//         game_root_path: game_root_path_str.clone(), // Keep clone if path is used later
-//         game_executable_path: executable_path.clone(),
-//     };
-
-//     // Serialize the data to a JSON string
-//     let json_string = serde_json::to_string_pretty(&game_data)
-//         .map_err(|e| format!("Failed to serialize game data to JSON: {}", e))?;
-
-//     // Write the JSON string to userconfig.json
-//     fs::write(&config_path, &json_string) // Pass json_string by reference if possible, or clone if needed
-//         .map_err(|e| format!("Failed to write userconfig.json to {:?}: {}", config_path, e))?;
-
-//     // Print after successful write
-//     println!("userconfig.json saved to {:?}:\n{}", config_path, json_string);
-//     // --------------------------------------
-
-//     // Get the main window using AppHandle obtained from args
-//     if let Some(main_window) = app_handle.get_webview_window("main") {
-//         let _ = main_window.show();
-//         let _ = main_window.set_focus();
-//     } else {
-//         eprintln!("Error: Could not find main window after setup."); // Modified message slightly
-//     }
-
-//     // Close the setup window itself (if it exists and we are in that flow)
-//     // Frontend might handle view switching instead of closing windows now.
-//     // Consider if this window closing logic is still relevant.
-//     if window.label() == "setup" { // Check if this label is still used/relevant
-//          println!("Closing setup window (label: {}).", window.label());
-//          // We might not need to close a window if setup is an overlay/view
-//          // window.close().map_err(|e| e.to_string())?;
-//     }
-
-//     Ok(())
-// }
-
-// Struct to hold game data - Simplified
-// #[derive(Serialize, Deserialize, Clone, Debug)]
-// struct GameData {
-//     game_root_path: String,
-//     game_executable_path: String,
-//     // Removed: appid, game_name, game_slug, version, cover_art_data_url
-// }
-
-// // Command to load the single game configuration from userconfig.json
-// #[tauri::command]
-// async fn load_game_config(app_handle: AppHandle) -> Result<Option<GameData>, String> {
-//     let config_dir = app_handle.path()
-//         .app_config_dir()
-//         .map_err(|e| format!("Failed to get app config dir: {}", e))?;
-//     let config_path = config_dir.join("userconfig.json");
-
-//     println!("Attempting to load config from: {:?}", config_path);
-
-//     match fs::read_to_string(&config_path) {
-//         Ok(json_string) => {
-//             println!("Successfully read userconfig.json. Contents:\n{}", json_string);
-//             // Attempt to deserialize the JSON into GameData
-//             // Make sure this matches the simplified GameData struct
-//             serde_json::from_str::<GameData>(&json_string)
-//                 .map_err(|e| format!("Failed to parse userconfig.json from {:?}: {}", config_path, e))
-//                 .map(|data| Some(data))
-//         }
-//         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-//             println!("No 'userconfig.json' found at {:?}. Assuming first run.", config_path);
-//             Ok(None)
-//         }
-//         Err(e) => {
-//             Err(format!("Failed to read userconfig.json from {:?}: {}", config_path, e))
-//         }
-//     }
-// }
-
-// // Command to delete the user configuration file
-// #[tauri::command]
-// async fn delete_config(app_handle: AppHandle) -> Result<(), String> {
-//     let config_dir = app_handle.path()
-//         .app_config_dir()
-//         .map_err(|e| format!("Failed to get app config dir: {}", e))?;
-//     let config_path = config_dir.join("userconfig.json");
-
-//     println!("Attempting to delete config file: {:?}", config_path);
-
-//     match fs::remove_file(&config_path) {
-//         Ok(_) => {
-//             println!("Successfully deleted config file: {:?}", config_path);
-//             Ok(())
-//         }
-//         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-//             println!("Config file not found at {:?}, nothing to delete.", config_path);
-//             Ok(()) // Not an error if the file doesn't exist
-//         }
-//         Err(e) => {
-//             eprintln!("Error deleting config file {:?}: {}", config_path, e);
-//             Err(format!("Failed to delete config file: {}", e))
-//         }
-//     }
-// }
 
 // Struct representing mod metadata read from modinfo.json
 #[derive(Serialize, Deserialize, Debug, Clone)] // Added Clone
@@ -249,172 +48,274 @@ struct GitHubRelease {
 }
 // --- End GitHub Structs ---
 
-// --- Helper Function to get Latest REFramework URL ---
-async fn get_latest_reframework_url() -> Result<String, String> {
-    let client = reqwest::Client::builder()
+// --- Abstraction for an installable package (like REFramework) ---
+#[derive(Debug, Clone)] // Clone might be useful
+struct Package {
+    name: String, // e.g., "REFramework"
+    // Could add version, repo URL etc. later if needed
+}
+
+impl Package {
+    // Helper to create a REFramework package instance
+    fn reframework() -> Self {
+        Package { name: "REFramework".to_string() }
+    }
+
+    // Checks if the package seems present based on specific file/folder markers
+    async fn is_present(&self, game_root_path: &str) -> Result<bool, String> {
+        log::info!("Checking for {} presence in: {}", self.name, game_root_path);
+        let root = PathBuf::from(game_root_path);
+
+        // Specific checks for REFramework
+        if self.name == "REFramework" {
+            let dinput_path = root.join("dinput8.dll");
+            let reframework_dir_path = root.join("reframework");
+
+            let installed = dinput_path.exists() || reframework_dir_path.is_dir();
+            log::info!(" -> {} installed status: {}", self.name, installed);
+            Ok(installed)
+        } else {
+            // Handle other package types later if needed
+            log::warn!("Presence check not implemented for package: {}", self.name);
+            Err(format!("Presence check not implemented for {}", self.name))
+        }
+    }
+
+    // Ensures the package is installed (downloads/extracts if needed)
+    async fn ensure_installed(
+        &self,
+        game_root_path: &str,
+        // app_handle: &AppHandle // Might need app_handle later for config paths etc.
+    ) -> Result<(), String> {
+        log::info!("Ensuring {} is installed in: {}", self.name, game_root_path);
+
+        if self.is_present(game_root_path).await? {
+            log::info!("{} is already present. Skipping installation.", self.name);
+            return Ok(());
+        }
+
+        log::info!("{} not found. Proceeding with installation...", self.name);
+
+        // Specific logic for REFramework
+        if self.name == "REFramework" {
+            let target_dir = PathBuf::from(game_root_path);
+            if !target_dir.is_dir() {
+                return Err(format!("Target game directory does not exist: {}", game_root_path));
+            }
+
+            // 1. Fetch release info (using a new helper)
+            log::info!("Fetching latest {} release info...", self.name);
+            let release_info = fetch_latest_release("praydog", "REFramework-nightly").await?;
+            log::info!("Latest release tag: {}, Prerelease: {}", release_info.tag_name, release_info.prerelease);
+
+            // 2. Find the correct asset URL (MHWilds.zip for now)
+            // TODO: Make asset name configurable or dynamically determined?
+            let asset_name = "MHWilds.zip";
+            let asset = release_info.assets.iter()
+                .find(|a| a.name == asset_name)
+                .ok_or_else(|| format!("{} not found in latest release ({})", asset_name, release_info.tag_name))?;
+            log::info!("Found asset URL: {}", asset.browser_download_url);
+
+            // 3. Download the asset (using a new helper)
+            log::info!("Downloading {}...", asset.name);
+            let zip_data = download_bytes(&asset.browser_download_url).await?;
+            log::info!("Download complete ({} bytes)", zip_data.len());
+
+            // 4. Extract (using the existing helper)
+            let mut archive = zip::ZipArchive::new(std::io::Cursor::new(zip_data))
+                .map_err(|e| format!("Failed to open zip archive: {}", e))?;
+
+            let extracted_count = extract_reframework_files(&mut archive, &target_dir)?;
+
+            if extracted_count == 0 {
+                log::error!("{} installation failed: No relevant files found in zip.", self.name);
+                return Err(format!("{} installation failed: No relevant files found in zip.", self.name));
+            }
+
+            log::info!("{} installation successful. Extracted {} items.", self.name, extracted_count);
+            Ok(())
+
+        } else {
+            log::error!("Installation logic not implemented for package: {}", self.name);
+            Err(format!("Installation logic not implemented for {}", self.name))
+        }
+    }
+}
+// --- End Package Abstraction ---
+
+// --- Placeholder Helper Functions --- 
+// TODO: Implement fetch_latest_release using reqwest and GitHub API
+async fn fetch_latest_release(owner: &str, repo: &str) -> Result<GitHubRelease, String> {
+    log::info!("Fetching latest release for {}/{}...", owner, repo);
+    // Adapted from get_latest_reframework_url
+     let client = reqwest::Client::builder()
         .user_agent("FossModManager/0.1.0") // GitHub requires a User-Agent
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
 
-    let url = "https://api.github.com/repos/praydog/REFramework-nightly/releases";
-    log::info!("Fetching releases from: {}", url); // Use log crate
+    let url = format!("https://api.github.com/repos/{}/{}/releases", owner, repo);
+    log::debug!("Fetching releases from URL: {}", url);
 
-    let response = client.get(url)
+    let response = client.get(&url)
         .send()
         .await
-        .map_err(|e| format!("Failed to fetch releases: {}", e))?;
+        .map_err(|e| format!("Failed to fetch releases from {}: {}", url, e))?;
 
     if !response.status().is_success() {
         let status = response.status();
         let text = response.text().await.unwrap_or_else(|_| "Failed to read error body".to_string());
-        return Err(format!("GitHub API request failed: Status {} - {}", status, text));
+        return Err(format!("GitHub API request failed for {}: Status {} - {}", url, status, text));
     }
 
-     log::info!("Successfully fetched releases list.");
+     log::debug!("Successfully fetched releases list for {}/{}.", owner, repo);
 
     let releases: Vec<GitHubRelease> = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse GitHub releases JSON: {}", e))?;
+        .map_err(|e| format!("Failed to parse GitHub releases JSON from {}: {}", url, e))?;
 
-    // Find the latest release (GitHub API usually returns latest first, but let's be sure)
-    // We might need more sophisticated logic if tags aren't easily sortable or if we want to avoid pre-releases explicitly
-    // For now, assume the first one is the latest suitable one.
-    let latest_release = releases.into_iter().next()
-        .ok_or_else(|| "No releases found for REFramework-nightly".to_string())?;
+    // Find the latest release (prefer non-prerelease, but take first if none)
+    // This logic might need refinement depending on tagging conventions
+    let mut releases_iter = releases.into_iter();
+    let latest_release = releases_iter
+        .find(|r| !r.prerelease)
+        .or_else(|| releases_iter.next()) // Fallback to first if no non-prerelease
+        .ok_or_else(|| format!("No releases found for {}/{}", owner, repo))?;
 
-     log::info!("Found latest release: {}", latest_release.tag_name);
-
-    // Find the MHWilds.zip asset
-    let asset = latest_release.assets.into_iter()
-        .find(|a| a.name == "MHWilds.zip")
-        .ok_or_else(|| format!("MHWilds.zip not found in latest release ({})", latest_release.tag_name))?;
-
-     log::info!("Found MHWilds.zip asset URL: {}", asset.browser_download_url);
-    Ok(asset.browser_download_url)
+     log::info!("Found latest suitable release for {}/{}: Tag {}, Prerelease: {}", 
+               owner, repo, latest_release.tag_name, latest_release.prerelease);
+    Ok(latest_release)
 }
 
-
-#[tauri::command]
-async fn check_reframework_installed(game_root_path: String) -> Result<bool, String> {
-     log::info!("Checking for REFramework in: {}", game_root_path);
-    let root = PathBuf::from(game_root_path);
-    let dinput_path = root.join("dinput8.dll");
-    let reframework_dir_path = root.join("reframework");
-
-    // Check if either dinput8.dll exists OR the reframework directory exists
-    let installed = dinput_path.exists() || reframework_dir_path.is_dir();
-     log::info!("REFramework installed status: {}", installed);
-    Ok(installed)
-}
-
-
-#[tauri::command]
-async fn install_reframework(app_handle: AppHandle, game_root_path: String) -> Result<(), String> {
-     log::info!("Starting REFramework installation for path: {}", game_root_path);
-    let target_dir = PathBuf::from(&game_root_path);
-
-    if !target_dir.is_dir() {
-        return Err(format!("Target game directory does not exist: {}", game_root_path));
-    }
-
-    // --- Get Download URL ---
-     log::info!("Fetching latest REFramework download URL...");
-    let download_url = get_latest_reframework_url().await?;
-     log::info!("Using download URL: {}", download_url);
-
-
-    // --- Download ---
-     log::info!("Downloading REFramework...");
-    let client = reqwest::Client::new(); // Create a new client for download
-    let response = client.get(&download_url)
+// TODO: Implement download_bytes using reqwest
+async fn download_bytes(url: &str) -> Result<bytes::Bytes, String> {
+    log::info!("Downloading bytes from: {}", url);
+    let client = reqwest::Client::new();
+    let response = client.get(url)
         .send()
         .await
-        .map_err(|e| format!("Failed to start download: {}", e))?;
+        .map_err(|e| format!("Failed to start download from {}: {}", url, e))?;
 
     if !response.status().is_success() {
-        return Err(format!("Download request failed: Status {}", response.status()));
+        return Err(format!("Download request failed from {}: Status {}", url, response.status()));
     }
 
-    let zip_data = response
+    let data = response
         .bytes()
         .await
-        .map_err(|e| format!("Failed to read download bytes: {}", e))?;
-     log::info!("Download complete ({} bytes)", zip_data.len());
+        .map_err(|e| format!("Failed to read download bytes from {}: {}", url, e))?;
+    
+    log::info!("Successfully downloaded {} bytes from {}", data.len(), url);
+    Ok(data)
+}
+// --- End Placeholder Helpers ---
 
-    // --- Selective Extraction ---
-    let mut archive = zip::ZipArchive::new(std::io::Cursor::new(zip_data)) // Wrap zip_data in Cursor
-        .map_err(|e| format!("Failed to open zip archive: {}", e))?;
 
-     log::info!("Starting selective extraction to {}", target_dir.display());
+// --- Existing Helper: REFramework Selective Extraction ---
+fn extract_reframework_files(
+    archive: &mut zip::ZipArchive<std::io::Cursor<bytes::Bytes>>, // Take archive by mutable ref
+    target_dir: &PathBuf
+) -> Result<usize, String> { // Return count of extracted files/dirs
+    log::info!("Starting REFramework selective extraction to {}", target_dir.display());
     let mut extracted_count = 0;
 
     for i in 0..archive.len() {
-        let mut file = archive.by_index(i).map_err(|e| format!("Error reading zip entry {}: {}", i, e))?;
-        let entry_path_str = file.name().to_string();
+        let mut file = match archive.by_index(i) {
+            Ok(f) => f,
+            Err(e) => {
+                log::warn!("Error reading zip entry {}: {}. Skipping.", i, e);
+                continue;
+            }
+        };
+        // Use owned path for manipulation
+        let entry_path = match file.enclosed_name() {
+            Some(path) => path.to_path_buf(),
+            None => {
+                log::warn!("Skipping potentially unsafe zip entry: {}", file.name());
+                continue;
+            }
+        };
 
-        // Check if the entry should be extracted
-        let should_extract = entry_path_str == "dinput8.dll" || entry_path_str.starts_with("reframework/");
+        // Filter logic: Must be dinput8.dll at root OR inside reframework/ directory
+        let is_dinput = entry_path == PathBuf::from("dinput8.dll");
+        let is_in_reframework_dir = entry_path.starts_with("reframework/");
 
-        if !should_extract {
+        if !is_dinput && !is_in_reframework_dir {
+            log::debug!("Skipping entry (not dinput8.dll or in reframework/): {:?}", entry_path);
             continue; // Skip this file
         }
 
-        let outpath = match file.enclosed_name() {
-             Some(path) => target_dir.join(path),
-             None => {
-                  log::warn!("Skipping potentially unsafe zip entry: {}", entry_path_str);
-                 continue;
-             }
-         };
+        // Determine the final output path relative to target_dir
+        let outpath = target_dir.join(&entry_path);
 
-         log::debug!("Processing entry: {}", entry_path_str); // More detailed log
+        log::debug!("Processing entry: {:?} -> {:?}", entry_path, outpath);
 
         if file.name().ends_with('/') {
-             log::debug!("Creating directory {}", outpath.display());
+            log::debug!("Creating directory {}", outpath.display());
             fs::create_dir_all(&outpath).map_err(|e| format!("Failed to create directory {}: {}", outpath.display(), e))?;
         } else {
-             log::debug!("Extracting file {}", outpath.display());
+            log::debug!("Extracting file {}", outpath.display());
             // Ensure parent directory exists
             if let Some(p) = outpath.parent() {
                 if !p.exists() {
                     fs::create_dir_all(&p).map_err(|e| format!("Failed to create parent directory {}: {}", p.display(), e))?;
                 }
             }
-            // Check if file exists and delete if it does (overwrite)
-            // Be cautious with this in a real app, maybe offer options?
-             if outpath.exists() {
-                  log::warn!("Overwriting existing file: {}", outpath.display());
-                 if outpath.is_dir() {
-                     fs::remove_dir_all(&outpath).map_err(|e| format!("Failed to remove existing directory before overwrite {}: {}", outpath.display(), e))?;
-                 } else {
-                     fs::remove_file(&outpath).map_err(|e| format!("Failed to remove existing file before overwrite {}: {}", outpath.display(), e))?;
-                 }
-             }
+            // Overwrite strategy: remove existing first
+            if outpath.exists() {
+                log::warn!("Overwriting existing path: {}", outpath.display());
+                if outpath.is_dir() {
+                    fs::remove_dir_all(&outpath).map_err(|e| format!("Failed to remove existing directory before overwrite {}: {}", outpath.display(), e))?;
+                } else {
+                    fs::remove_file(&outpath).map_err(|e| format!("Failed to remove existing file before overwrite {}: {}", outpath.display(), e))?;
+                }
+            }
 
             let mut outfile = fs::File::create(&outpath).map_err(|e| format!("Failed to create output file {}: {}", outpath.display(), e))?;
             std::io::copy(&mut file, &mut outfile).map_err(|e| format!("Failed to copy content to {}: {}", outpath.display(), e))?;
-             extracted_count += 1;
+            extracted_count += 1;
         }
 
-        // Set permissions (optional, might be needed on Linux/macOS)
+        // Set permissions (optional)
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
             if let Some(mode) = file.unix_mode() {
-                // Be careful applying zip permissions directly, could be too restrictive/permissive
-                 log::debug!("Attempting to set permissions {:o} on {}", mode, outpath.display());
                 if let Err(e) = fs::set_permissions(&outpath, fs::Permissions::from_mode(mode)) {
-                    // Log warning instead of hard error for permissions
-                     log::warn!("Failed to set permissions on {}: {}", outpath.display(), e);
-                 }
+                    log::warn!("Failed to set permissions on {}: {}", outpath.display(), e);
+                }
             }
         }
     }
 
-     log::info!("Selective extraction complete. {} files/folders processed for extraction.", extracted_count);
-     log::info!("REFramework installation successful for {}", game_root_path);
-    Ok(())
+    log::info!("REFramework selective extraction complete. {} files/dirs extracted.", extracted_count);
+    Ok(extracted_count)
+}
+// --- End Helper ---
+
+
+// --- REMOVE OLD Helper Function to get Latest REFramework URL ---
+/*
+async fn get_latest_reframework_url() -> Result<String, String> {
+    // ... old implementation ...
+}
+*/
+
+#[tauri::command]
+async fn check_reframework_installed(game_root_path: String) -> Result<bool, String> {
+     // Use the Package abstraction
+     let reframework_pkg = Package::reframework();
+     reframework_pkg.is_present(&game_root_path).await
+}
+
+
+// Rename this command to match todo.md and its behaviour
+#[tauri::command]
+async fn ensure_reframework(app_handle: AppHandle, game_root_path: String) -> Result<(), String> {
+    // Use the Package abstraction
+    let reframework_pkg = Package::reframework();
+    // Pass app_handle if needed by ensure_installed later (currently not needed)
+    reframework_pkg.ensure_installed(&game_root_path).await 
 }
 
 // Command to ensure the fossmodmanager/mods directory exists AND open it
@@ -1061,12 +962,13 @@ pub fn run() {
     builder
         .manage(api_cache) // Manage the ApiCache instance
         .invoke_handler(tauri::generate_handler![
-            finalize_setup,
+            validate_game_installation,
+            save_game_config,
             // Add the command from the nexus_api module
             nexus_api::fetch_trending_mods,
             // Added new commands
             check_reframework_installed,
-            install_reframework,
+            ensure_reframework,
             // Command to load the single game config
             load_game_config,
             // Command to open the mods folder

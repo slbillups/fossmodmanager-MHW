@@ -1,0 +1,164 @@
+.button {
+  --accent-color: #2ed573;
+  --accent-glow: rgba(46, 213, 115, 0.4);
+  --accent-faint: rgba(46, 213, 115, 0.1);
+  --text-color: #fff;
+  --bg-color: #000;
+  --border-color: #333;
+  
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  padding: 6px 15px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  z-index: 1;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.button:hover {
+  box-shadow: 0 0 15px var(--accent-glow);
+  color: var(--text-color);
+  border-color: var(--accent-color);
+}
+
+.button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+    circle at center,
+    var(--accent-faint) 0%,
+    transparent 70%
+  );
+  transform: scale(0);
+  transition: transform 0.6s ease;
+  z-index: -1;
+}
+
+.button:hover::before {
+  transform: scale(1.5);
+}
+
+/* Icon styling */
+.iconWrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 0.7rem;
+  font-size: 1rem;
+}
+
+/* Bounce/wiggle effect on click */
+@keyframes wiggle {
+  0% { transform: rotate(0deg); }
+  25% { transform: rotate(-3deg) scale(0.98); }
+  50% { transform: rotate(3deg) scale(0.98); }
+  75% { transform: rotate(-2deg) scale(0.99); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+
+
+/* Particles effect for hover state */
+.button {
+  --particle-count: 20;
+}
+
+.button::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  box-shadow: 
+    calc(var(--x1, -10) * 1px) calc(var(--y1, -10) * 1px) 0 var(--accent-color),
+    calc(var(--x2, 10) * 1px) calc(var(--y2, 10) * 1px) 0 var(--accent-color),
+    calc(var(--x3, -20) * 1px) calc(var(--y3, 20) * 1px) 0 var(--accent-color),
+    calc(var(--x4, 20) * 1px) calc(var(--y4, -20) * 1px) 0 var(--accent-color),
+    calc(var(--x5, -30) * 1px) calc(var(--y5, -30) * 1px) 0 var(--accent-color);
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  z-index: -1;
+  transition: opacity 0.01s;
+}
+
+.button:hover::after {
+  opacity: 0.5;
+  animation: particle-float 2s infinite;
+}
+
+@keyframes particle-float {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2);
+    opacity: 0;
+  }
+}
+
+/* Pulse animation for emphasis */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--accent-glow);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(46, 213, 115, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(46, 213, 115, 0);
+  }
+}
+
+.button.pulse {
+  animation: pulse 2s infinite;
+}
+
+/* Disabled state */
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  background: #111;
+  border-color: #222;
+  color: #666;
+  box-shadow: none;
+}
+
+.button:disabled::before,
+.button:disabled::after {
+  display: none;
+}
+
+/* Nerdsnipe disclaimer positioning */
+.disclaimer {
+  position: absolute;
+  bottom: -16px;
+  left: 0;
+  font-size: 9px;
+  line-height: 1;
+  opacity: 0.7;
+  text-align: left;
+  width: 100%;
+  pointer-events: none;
+  transform-origin: left bottom;
+  transform: scale(1);
+  color: #3aa13a;
+} 

@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, WebviewWindow};
+use log::{info, warn, error};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GameData {
@@ -73,45 +74,40 @@ pub fn find_game_paths_from_exe(executable_path_str: &str) -> Result<(PathBuf, P
     }
 }
 
-// Write config to userconfig.json
+// New command to validate game path and return GameData without writing config
 #[tauri::command]
-pub async fn finalize_setup(
-    window: WebviewWindow,
-    app_handle: AppHandle,
-    executable_path: String,
-) -> Result<(), String> {
+pub async fn validate_game_installation(executable_path: String) -> Result<GameData, String> {
+    info!("Validating game installation from executable: {}", executable_path);
     let (game_root_path_buf, _) = find_game_paths_from_exe(&executable_path)?;
     let game_root_path_str = game_root_path_buf
         .to_str()
         .ok_or("Game root path contains invalid UTF-8")?
         .to_string();
 
-    let fossmodmanager_path = game_root_path_buf.join("fossmodmanager/mods");
-    fs::create_dir_all(&fossmodmanager_path)
-        .map_err(|e| format!("Failed to create mods directory {:?}: {}", fossmodmanager_path, e))?;
-
-    let config_path = get_config_path(&app_handle)?;
-    fs::create_dir_all(config_path.parent().unwrap())
-        .map_err(|e| format!("Failed to create config directory: {}", e))?;
+    // TODO: Add optional check for dinput8.dll presence as per todo.md
 
     let game_data = GameData {
         game_root_path: game_root_path_str.clone(),
         game_executable_path: executable_path.clone(),
     };
 
+    info!("Validation successful for: {}", executable_path);
+    Ok(game_data)
+}
+
+// New function to explicitly save GameData
+#[tauri::command] // Expose saving as a separate command
+pub async fn save_game_config(app_handle: AppHandle, game_data: GameData) -> Result<(), String> {
+    info!("Saving game config: {:?}", game_data);
+    let config_path = get_config_path(&app_handle)?;
+    fs::create_dir_all(config_path.parent().unwrap()) // Ensure dir exists
+        .map_err(|e| format!("Failed to create config directory: {}", e))?;
+
     fs::write(&config_path, serde_json::to_string_pretty(&game_data)
-        .map_err(|e| e.to_string())?)
-        .map_err(|e| format!("Failed to write config: {}", e))?;
+        .map_err(|e| format!("Failed to serialize GameData: {}", e))?)
+        .map_err(|e| format!("Failed to write config to {:?}: {}", config_path, e))?;
 
-    if let Some(main_window) = app_handle.get_webview_window("main") {
-        let _ = main_window.show();
-        let _ = main_window.set_focus();
-    }
-
-    if window.label() == "setup" {
-        println!("Closing setup window (label: {}).", window.label());
-    }
-
+    info!("Successfully saved game config to {:?}", config_path);
     Ok(())
 }
 
@@ -120,7 +116,23 @@ pub async fn load_game_config(app_handle: AppHandle) -> Result<Option<GameData>,
     let config_path = get_config_path(&app_handle)?;
     match fs::read_to_string(&config_path) {
         Ok(json) => {
-            let data = serde_json::from_str(&json).map_err(|e| e.to_string())?;
+            let data = serde_json::from_str(&json).map_err(|e| {
+                error!("Failed to parse userconfig.json: {}. Backing up.", e);
+                // Backup corrupted file
+                let backup_path = config_path.with_extension(format!(
+                    "json.corrupt-{}",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0)
+                ));
+                if let Err(backup_err) = fs::rename(&config_path, &backup_path) {
+                    error!("Failed to backup corrupted config file to {:?}: {}", backup_path, backup_err);
+                } else {
+                    info!("Backed up corrupted config file to {:?}", backup_path);
+                }
+                e.to_string()
+            })?;
             Ok(Some(data))
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
