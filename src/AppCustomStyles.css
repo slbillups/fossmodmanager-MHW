@@ -13,18 +13,6 @@ body {
 }
 
 
-.site-layout {
-  /* position: relative; */ /* Likely not needed anymore */
-}
-
-.ant-layout-content {
-  /* Remove specific padding overrides, rely on default or toolbar adjustment */
-  /* padding-left: 70px; */ 
-  /* padding-bottom: 60px; */
-  /* padding: 24px; Restore default Ant Design padding or adjust as needed */
-}
-
-
 /* Styles for the new Top Toolbar */
 .top-toolbar {
   display: flex;

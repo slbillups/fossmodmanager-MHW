@@ -3,5 +3,5 @@
 
 fn main() {
     // Call the library's run function directly
-    fossmodmanager_lib::run()
+    fossmodmanager_lib::run();
 }

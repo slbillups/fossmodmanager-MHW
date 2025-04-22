@@ -1,14 +1,11 @@
 use serde::{Deserialize, Serialize};
-use serde_json::json;
-use std::collections::HashMap;
 use std::fs;
-use std::path::{PathBuf, Path};
-use tauri::{WebviewWindow,AppHandle, Manager};
-use std::io::{self, Read, Write};
+use std::path::PathBuf;
+use tauri::{AppHandle, Manager};
+use std::io::{self};
 use zip::ZipArchive;
 
 use tauri_plugin_opener::OpenerExt;
-use vdf_reader;
 // Declare the new module
 mod nexus_api;
 use nexus_api::ApiCache;
@@ -17,209 +14,212 @@ use zip;
 use regex::Regex;
 use once_cell::sync::Lazy;
 
+mod utils;
+use utils::config::{finalize_setup, load_game_config, delete_config};
+
 // Helper function to find the game root and steamapps directories
-fn find_game_paths_from_exe(executable_path_str: &str) -> Result<(PathBuf, PathBuf), String> {
-    let executable_path = PathBuf::from(executable_path_str);
+// fn find_game_paths_from_exe(executable_path_str: &str) -> Result<(PathBuf, PathBuf), String> {
+//     let executable_path = PathBuf::from(executable_path_str);
 
-    if !executable_path.is_file() {
-        return Err(format!(
-            "Provided path is not a file or does not exist: {}",
-            executable_path_str
-        ));
-    }
+//     if !executable_path.is_file() {
+//         return Err(format!(
+//             "Provided path is not a file or does not exist: {}",
+//             executable_path_str
+//         ));
+//     }
 
-    let mut current_path = executable_path.parent().ok_or_else(|| {
-        format!(
-            "Could not get parent directory of executable: {}",
-            executable_path_str
-        )
-    })?;
+//     let mut current_path = executable_path.parent().ok_or_else(|| {
+//         format!(
+//             "Could not get parent directory of executable: {}",
+//             executable_path_str
+//         )
+//     })?;
 
-    loop {
-        let parent_path = current_path.parent().ok_or_else(|| {
-            format!(
-                "Reached filesystem root without finding 'steamapps/common' structure starting from: {}",
-                executable_path_str
-            )
-        })?;
+//     loop {
+//         let parent_path = current_path.parent().ok_or_else(|| {
+//             format!(
+//                 "Reached filesystem root without finding 'steamapps/common' structure starting from: {}",
+//                 executable_path_str
+//             )
+//         })?;
 
-        let parent_dir_name = parent_path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .ok_or_else(|| format!("Could not get parent directory name for: {:?}", parent_path))?;
+//         let parent_dir_name = parent_path
+//             .file_name()
+//             .and_then(|name| name.to_str())
+//             .ok_or_else(|| format!("Could not get parent directory name for: {:?}", parent_path))?;
 
-        if parent_dir_name == "common" {
-            let grandparent_path = parent_path.parent().ok_or_else(|| {
-                format!(
-                    "Found 'common' but no parent directory above it: {:?}",
-                    parent_path
-                )
-            })?;
+//         if parent_dir_name == "common" {
+//             let grandparent_path = parent_path.parent().ok_or_else(|| {
+//                 format!(
+//                     "Found 'common' but no parent directory above it: {:?}",
+//                     parent_path
+//                 )
+//             })?;
 
-            let grandparent_dir_name = grandparent_path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .ok_or_else(|| {
-                    format!(
-                        "Could not get grandparent directory name for: {:?}",
-                        grandparent_path
-                    )
-                })?;
+//             let grandparent_dir_name = grandparent_path
+//                 .file_name()
+//                 .and_then(|name| name.to_str())
+//                 .ok_or_else(|| {
+//                     format!(
+//                         "Could not get grandparent directory name for: {:?}",
+//                         grandparent_path
+//                     )
+//                 })?;
 
-            if grandparent_dir_name == "steamapps" {
-                // Success! current_path is game root, grandparent_path is steamapps
-                return Ok((current_path.to_path_buf(), grandparent_path.to_path_buf()));
-            }
-        }
+//             if grandparent_dir_name == "steamapps" {
+//                 // Success! current_path is game root, grandparent_path is steamapps
+//                 return Ok((current_path.to_path_buf(), grandparent_path.to_path_buf()));
+//             }
+//         }
 
-        if current_path == parent_path {
-            return Err(format!(
-                "Path resolution stopped unexpectedly at: {:?}. Could not find 'steamapps/common' structure.",
-                current_path
-            ));
-        }
-        current_path = parent_path;
-    }
-}
+//         if current_path == parent_path {
+//             return Err(format!(
+//                 "Path resolution stopped unexpectedly at: {:?}. Could not find 'steamapps/common' structure.",
+//                 current_path
+//             ));
+//         }
+//         current_path = parent_path;
+//     }
+// }
 
 // Helper function to parse ACF using vdf-reader crate
 
 // Helper function to get cover art data URL - Updated Logic
 
 // Command to finalize setup, write config, and potentially handle window logic
-#[tauri::command]
-async fn finalize_setup(
-    window: WebviewWindow, // Keep window arg if still needed for closing setup window
-    app_handle: AppHandle,
-    executable_path: String,
-) -> Result<(), String> {
-    // Use find_game_paths_from_exe to get game root and exe path buf
-    let (game_root_path_buf, _) = find_game_paths_from_exe(&executable_path)?; // Keep _ if exe path buf not needed here
-    let game_root_path_str = game_root_path_buf.to_str().ok_or("Game root path contains invalid UTF-8")?.to_string();
+// #[tauri::command]
+// async fn finalize_setup(
+//     window: WebviewWindow, // Keep window arg if still needed for closing setup window
+//     app_handle: AppHandle,
+//     executable_path: String,
+// ) -> Result<(), String> {
+//     // Use find_game_paths_from_exe to get game root and exe path buf
+//     let (game_root_path_buf, _) = find_game_paths_from_exe(&executable_path)?; // Keep _ if exe path buf not needed here
+//     let game_root_path_str = game_root_path_buf.to_str().ok_or("Game root path contains invalid UTF-8")?.to_string();
 
-    println!("Selected Executable: {}", executable_path);
-    println!("Determined Game Root: {}", game_root_path_str);
+//     println!("Selected Executable: {}", executable_path);
+//     println!("Determined Game Root: {}", game_root_path_str);
 
-    // --- Create necessary directories ---
-    let fossmodmanager_path = game_root_path_buf.join("fossmodmanager");
-    let mods_path = fossmodmanager_path.join("mods");
-    fs::create_dir_all(&mods_path)
-        .map_err(|e| format!("Failed to create mods directory {:?}: {}", mods_path, e))?;
-    println!("Ensured directory exists: {:?}", mods_path);
-    // ------------------------------------
+//     // --- Create necessary directories ---
+//     let fossmodmanager_path = game_root_path_buf.join("fossmodmanager");
+//     let mods_path = fossmodmanager_path.join("mods");
+//     fs::create_dir_all(&mods_path)
+//         .map_err(|e| format!("Failed to create mods directory {:?}: {}", mods_path, e))?;
+//     println!("Ensured directory exists: {:?}", mods_path);
+//     // ------------------------------------
 
 
-    // --- Persist the game data to userconfig.json ---
-    let config_dir = app_handle.path()
-        .app_config_dir()
-        .map_err(|e| format!("Failed to get app config dir: {}", e))?;
+//     // --- Persist the game data to userconfig.json ---
+//     let config_dir = app_handle.path()
+//         .app_config_dir()
+//         .map_err(|e| format!("Failed to get app config dir: {}", e))?;
 
-    // Ensure the config directory exists
-    fs::create_dir_all(&config_dir)
-        .map_err(|e| format!("Failed to create config directory {:?}: {}", config_dir, e))?;
+//     // Ensure the config directory exists
+//     fs::create_dir_all(&config_dir)
+//         .map_err(|e| format!("Failed to create config directory {:?}: {}", config_dir, e))?;
 
-    let config_path = config_dir.join("userconfig.json");
+//     let config_path = config_dir.join("userconfig.json");
 
-    // Create the simplified game data entry
-    let game_data = GameData {
-        game_root_path: game_root_path_str.clone(), // Keep clone if path is used later
-        game_executable_path: executable_path.clone(),
-    };
+//     // Create the simplified game data entry
+//     let game_data = GameData {
+//         game_root_path: game_root_path_str.clone(), // Keep clone if path is used later
+//         game_executable_path: executable_path.clone(),
+//     };
 
-    // Serialize the data to a JSON string
-    let json_string = serde_json::to_string_pretty(&game_data)
-        .map_err(|e| format!("Failed to serialize game data to JSON: {}", e))?;
+//     // Serialize the data to a JSON string
+//     let json_string = serde_json::to_string_pretty(&game_data)
+//         .map_err(|e| format!("Failed to serialize game data to JSON: {}", e))?;
 
-    // Write the JSON string to userconfig.json
-    fs::write(&config_path, &json_string) // Pass json_string by reference if possible, or clone if needed
-        .map_err(|e| format!("Failed to write userconfig.json to {:?}: {}", config_path, e))?;
+//     // Write the JSON string to userconfig.json
+//     fs::write(&config_path, &json_string) // Pass json_string by reference if possible, or clone if needed
+//         .map_err(|e| format!("Failed to write userconfig.json to {:?}: {}", config_path, e))?;
 
-    // Print after successful write
-    println!("userconfig.json saved to {:?}:\n{}", config_path, json_string);
-    // --------------------------------------
+//     // Print after successful write
+//     println!("userconfig.json saved to {:?}:\n{}", config_path, json_string);
+//     // --------------------------------------
 
-    // Get the main window using AppHandle obtained from args
-    if let Some(main_window) = app_handle.get_webview_window("main") {
-        let _ = main_window.show();
-        let _ = main_window.set_focus();
-    } else {
-        eprintln!("Error: Could not find main window after setup."); // Modified message slightly
-    }
+//     // Get the main window using AppHandle obtained from args
+//     if let Some(main_window) = app_handle.get_webview_window("main") {
+//         let _ = main_window.show();
+//         let _ = main_window.set_focus();
+//     } else {
+//         eprintln!("Error: Could not find main window after setup."); // Modified message slightly
+//     }
 
-    // Close the setup window itself (if it exists and we are in that flow)
-    // Frontend might handle view switching instead of closing windows now.
-    // Consider if this window closing logic is still relevant.
-    if window.label() == "setup" { // Check if this label is still used/relevant
-         println!("Closing setup window (label: {}).", window.label());
-         // We might not need to close a window if setup is an overlay/view
-         // window.close().map_err(|e| e.to_string())?;
-    }
+//     // Close the setup window itself (if it exists and we are in that flow)
+//     // Frontend might handle view switching instead of closing windows now.
+//     // Consider if this window closing logic is still relevant.
+//     if window.label() == "setup" { // Check if this label is still used/relevant
+//          println!("Closing setup window (label: {}).", window.label());
+//          // We might not need to close a window if setup is an overlay/view
+//          // window.close().map_err(|e| e.to_string())?;
+//     }
 
-    Ok(())
-}
+//     Ok(())
+// }
 
 // Struct to hold game data - Simplified
-#[derive(Serialize, Deserialize, Clone, Debug)]
-struct GameData {
-    game_root_path: String,
-    game_executable_path: String,
-    // Removed: appid, game_name, game_slug, version, cover_art_data_url
-}
+// #[derive(Serialize, Deserialize, Clone, Debug)]
+// struct GameData {
+//     game_root_path: String,
+//     game_executable_path: String,
+//     // Removed: appid, game_name, game_slug, version, cover_art_data_url
+// }
 
-// Command to load the single game configuration from userconfig.json
-#[tauri::command]
-async fn load_game_config(app_handle: AppHandle) -> Result<Option<GameData>, String> {
-    let config_dir = app_handle.path()
-        .app_config_dir()
-        .map_err(|e| format!("Failed to get app config dir: {}", e))?;
-    let config_path = config_dir.join("userconfig.json");
+// // Command to load the single game configuration from userconfig.json
+// #[tauri::command]
+// async fn load_game_config(app_handle: AppHandle) -> Result<Option<GameData>, String> {
+//     let config_dir = app_handle.path()
+//         .app_config_dir()
+//         .map_err(|e| format!("Failed to get app config dir: {}", e))?;
+//     let config_path = config_dir.join("userconfig.json");
 
-    println!("Attempting to load config from: {:?}", config_path);
+//     println!("Attempting to load config from: {:?}", config_path);
 
-    match fs::read_to_string(&config_path) {
-        Ok(json_string) => {
-            println!("Successfully read userconfig.json. Contents:\n{}", json_string);
-            // Attempt to deserialize the JSON into GameData
-            // Make sure this matches the simplified GameData struct
-            serde_json::from_str::<GameData>(&json_string)
-                .map_err(|e| format!("Failed to parse userconfig.json from {:?}: {}", config_path, e))
-                .map(|data| Some(data))
-        }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            println!("No 'userconfig.json' found at {:?}. Assuming first run.", config_path);
-            Ok(None)
-        }
-        Err(e) => {
-            Err(format!("Failed to read userconfig.json from {:?}: {}", config_path, e))
-        }
-    }
-}
+//     match fs::read_to_string(&config_path) {
+//         Ok(json_string) => {
+//             println!("Successfully read userconfig.json. Contents:\n{}", json_string);
+//             // Attempt to deserialize the JSON into GameData
+//             // Make sure this matches the simplified GameData struct
+//             serde_json::from_str::<GameData>(&json_string)
+//                 .map_err(|e| format!("Failed to parse userconfig.json from {:?}: {}", config_path, e))
+//                 .map(|data| Some(data))
+//         }
+//         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+//             println!("No 'userconfig.json' found at {:?}. Assuming first run.", config_path);
+//             Ok(None)
+//         }
+//         Err(e) => {
+//             Err(format!("Failed to read userconfig.json from {:?}: {}", config_path, e))
+//         }
+//     }
+// }
 
-// Command to delete the user configuration file
-#[tauri::command]
-async fn delete_config(app_handle: AppHandle) -> Result<(), String> {
-    let config_dir = app_handle.path()
-        .app_config_dir()
-        .map_err(|e| format!("Failed to get app config dir: {}", e))?;
-    let config_path = config_dir.join("userconfig.json");
+// // Command to delete the user configuration file
+// #[tauri::command]
+// async fn delete_config(app_handle: AppHandle) -> Result<(), String> {
+//     let config_dir = app_handle.path()
+//         .app_config_dir()
+//         .map_err(|e| format!("Failed to get app config dir: {}", e))?;
+//     let config_path = config_dir.join("userconfig.json");
 
-    println!("Attempting to delete config file: {:?}", config_path);
+//     println!("Attempting to delete config file: {:?}", config_path);
 
-    match fs::remove_file(&config_path) {
-        Ok(_) => {
-            println!("Successfully deleted config file: {:?}", config_path);
-            Ok(())
-        }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            println!("Config file not found at {:?}, nothing to delete.", config_path);
-            Ok(()) // Not an error if the file doesn't exist
-        }
-        Err(e) => {
-            eprintln!("Error deleting config file {:?}: {}", config_path, e);
-            Err(format!("Failed to delete config file: {}", e))
-        }
-    }
-}
+//     match fs::remove_file(&config_path) {
+//         Ok(_) => {
+//             println!("Successfully deleted config file: {:?}", config_path);
+//             Ok(())
+//         }
+//         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+//             println!("Config file not found at {:?}, nothing to delete.", config_path);
+//             Ok(()) // Not an error if the file doesn't exist
+//         }
+//         Err(e) => {
+//             eprintln!("Error deleting config file {:?}: {}", config_path, e);
+//             Err(format!("Failed to delete config file: {}", e))
+//         }
+//     }
+// }
 
 // Struct representing mod metadata read from modinfo.json
 #[derive(Serialize, Deserialize, Debug, Clone)] // Added Clone
@@ -471,7 +471,8 @@ async fn open_mods_folder(app_handle: AppHandle, game_root_path: String) -> Resu
 struct ModMetadata {
     parsed_name: String,
     original_zip_name: String,
-    installed_files: Vec<String>, // List of relative paths within <game_root> added/overwritten by this mod
+    // installed_files: Vec<String>, // List of relative paths within <game_root> added/overwritten by this mod
+    installed_directory: String, // Relative path from game_root to the mod's specific folder (e.g., "reframework/plugins/MyMod")
     source: String,              // e.g., "local_zip"
     version: Option<String>,     // Optional: Maybe parsed from filename later
 }
@@ -512,45 +513,29 @@ async fn list_mods(app_handle: AppHandle, game_root_path: String) -> Result<Vec<
     let mut mods_info_list: Vec<ModInfo> = Vec::new();
 
     for metadata in mods_metadata {
-        let mut is_enabled = false; // Default to disabled
-        let mut checked_key_file = false;
+        // --- Determine Enabled Status based on Directory --- 
+        let mod_dir_rel = PathBuf::from(&metadata.installed_directory);
+        let mod_dir_abs = game_root.join(&mod_dir_rel);
+        let disabled_dir_str = format!("{}.disabled", metadata.installed_directory);
+        let disabled_dir_abs = game_root.join(PathBuf::from(&disabled_dir_str));
 
-        log::debug!("Checking status for mod: {}", metadata.parsed_name);
+        let is_enabled = mod_dir_abs.is_dir(); // Enabled if the directory exists without .disabled
 
-        for relative_path_str in &metadata.installed_files {
-            // Focus on key file types that are typically toggled
-            let is_key_file = relative_path_str.ends_with(".lua") || relative_path_str.ends_with(".dll");
+        log::debug!(
+            "Checking status for mod '{}': Directory {:?} exists? {}. Disabled path: {:?}",
+            metadata.parsed_name,
+            mod_dir_abs,
+            is_enabled,
+            disabled_dir_abs
+        );
 
-            if is_key_file {
-                checked_key_file = true;
-                let file_path = game_root.join(relative_path_str);
-                let disabled_file_path_str = format!("{}.disabled", relative_path_str);
-                let disabled_file_path = game_root.join(&disabled_file_path_str);
-
-                log::debug!("  Checking key file: {:?}", file_path);
-                log::debug!("  Checking disabled path: {:?}", disabled_file_path);
-
-                // If the file exists *without* .disabled, it's considered enabled.
-                // We only need one such file to mark the mod as enabled.
-                if file_path.exists() && !disabled_file_path.exists() {
-                     log::debug!("    Found non-disabled key file: {:?}. Marking as enabled.", file_path);
-                    is_enabled = true;
-                    break; // No need to check other files for this mod
-                }
-                 if !file_path.exists() && disabled_file_path.exists() {
-                      log::debug!("    Found only disabled key file: {:?}. Keeping as disabled.", disabled_file_path);
-                 }
-                 if !file_path.exists() && !disabled_file_path.exists() {
-                      log::warn!("    Key file {:?} and its .disabled version {:?} both missing for mod {}. Assuming disabled.", file_path, disabled_file_path, metadata.parsed_name);
-                 }
-            }
-        }
-
-        // If we iterated through installed_files but didn't find any .lua or .dll, log a warning.
-        if !checked_key_file {
-            log::warn!("Mod '{}' has no .lua or .dll files listed in modlist.json. Cannot determine enabled status accurately. Assuming disabled.", metadata.parsed_name);
-            // is_enabled remains false
-        }
+        // Optional: Add a check/warning if BOTH the normal and .disabled directories exist, or if NEITHER exist.
+        if is_enabled && disabled_dir_abs.exists() {
+             log::warn!("Mod '{}' has both enabled ({:?}) and disabled ({:?}) directories present! Assuming enabled.", metadata.parsed_name, mod_dir_abs, disabled_dir_abs);
+         } else if !is_enabled && !disabled_dir_abs.exists() {
+             log::warn!("Mod '{}' directory not found at either {:?} or {:?}. Mod may be corrupted or partially deleted. Assuming disabled.", metadata.parsed_name, mod_dir_abs, disabled_dir_abs);
+         }
+        // --- End Status Check ---
 
          log::info!("Mod '{}' final enabled status: {}", metadata.parsed_name, is_enabled);
 
@@ -639,21 +624,78 @@ async fn install_mod_from_zip(
 
     println!("Parsed mod name: '{}', Original zip: '{}'", parsed_name, original_zip_name);
 
-    // --- 2. Process Zip Archive --- 
-    let target_root_path = PathBuf::from(&game_root_path); // Use & to borrow
-    let source_zip_path = PathBuf::from(&zip_path_str); // Use & to borrow
+    // --- 2. Determine Target Base Dir & Create Mod Dir --- 
+    let target_root_path = PathBuf::from(&game_root_path);
+    let source_zip_path = PathBuf::from(&zip_path_str);
 
     if !source_zip_path.is_file() {
         return Err(format!("Source zip file not found: {:?}", source_zip_path));
     }
-    // Ensure the /reframework directory exists in the target, create if not
     let target_reframework_path = target_root_path.join("reframework");
-    if !target_reframework_path.is_dir() {
-         log::info!("Target reframework directory not found, creating: {:?}", target_reframework_path);
-         fs::create_dir_all(&target_reframework_path)
-            .map_err(|e| format!("Failed to create target reframework directory {:?}: {}", target_reframework_path, e))?;
+    fs::create_dir_all(&target_reframework_path)
+        .map_err(|e| format!("Failed to create target reframework directory {:?}: {}", target_reframework_path, e))?;
+
+    // Determine if mod goes in plugins or autorun (default to plugins)
+    // TODO: This logic might need refinement. How to reliably detect autorun scripts?
+    // Maybe check if the zip ONLY contains .lua files directly under autorun?
+    // For now, assume plugins unless proven otherwise (needs better check).
+    let mut base_target_dir_name = "plugins";
+    // A simple check: if the zip contains *any* path starting with "autorun/"
+    let mut is_autorun_mod = false;
+    {
+        let file_peek = fs::File::open(&source_zip_path).map_err(|e| format!("Peek failed: {}", e))?;
+        let mut archive_peek = ZipArchive::new(file_peek).map_err(|e| format!("Peek archive failed: {}", e))?;
+        for i in 0..archive_peek.len() {
+            if let Ok(file_peek) = archive_peek.by_index(i) {
+                if let Some(path) = file_peek.enclosed_name() {
+                    // Check if any component path contains reframework/autorun
+                    let path_str = path.to_string_lossy();
+                    if path_str.contains("reframework/autorun") {
+                         // More robust check - look for the pattern anywhere
+                        is_autorun_mod = true;
+                        log::debug!("Peek: Found 'reframework/autorun' pattern in '{}', classifying as autorun mod.", path_str);
+                        break;
+                    } else if path.components().any(|comp| comp.as_os_str() == "autorun") {
+                        // Less specific check: If "autorun" exists as a directory component *anywhere*,
+                        // assume it's an autorun mod. This might be too broad?
+                        // Consider if we only want top-level or reframework/ level?
+                        // Let's stick to the contains check for now, it's less ambiguous.
+                        // is_autorun_mod = true;
+                        // log::debug!("Peek: Found 'autorun' component in '{}', classifying as autorun mod.", path_str);
+                        // break;
+                    }
+                }
+            }
+        }
+    }
+    if is_autorun_mod {
+        base_target_dir_name = "autorun";
     }
 
+    let target_base_path = target_reframework_path.join(base_target_dir_name);
+    let mod_target_dir_abs = target_base_path.join(&parsed_name);
+    let mod_target_dir_disabled_abs = target_base_path.join(format!("{}.disabled", parsed_name));
+    let mod_target_dir_rel = PathBuf::from("reframework").join(base_target_dir_name).join(&parsed_name);
+
+    log::info!("Target directory for '{}': {:?}", parsed_name, mod_target_dir_abs);
+
+    // Handle existing directories
+    if mod_target_dir_abs.exists() {
+        log::warn!("Mod directory {:?} already exists. Removing before extraction.", mod_target_dir_abs);
+        fs::remove_dir_all(&mod_target_dir_abs)
+            .map_err(|e| format!("Failed to remove existing mod directory {:?}: {}", mod_target_dir_abs, e))?;
+    }
+    if mod_target_dir_disabled_abs.exists() {
+        log::warn!("Disabled mod directory {:?} already exists. Removing before extraction.", mod_target_dir_disabled_abs);
+        fs::remove_dir_all(&mod_target_dir_disabled_abs)
+            .map_err(|e| format!("Failed to remove existing disabled mod directory {:?}: {}", mod_target_dir_disabled_abs, e))?;
+    }
+
+    // Create the final mod directory
+    fs::create_dir_all(&mod_target_dir_abs)
+         .map_err(|e| format!("Failed to create mod directory {:?}: {}", mod_target_dir_abs, e))?;
+
+    // --- 3. Process Zip Archive & Extract --- 
     let file = fs::File::open(&source_zip_path)
         .map_err(|e| format!("Failed to open zip file {:?}: {}", source_zip_path, e))?;
 
@@ -661,13 +703,13 @@ async fn install_mod_from_zip(
         .map_err(|e| format!("Failed to read zip archive {:?}: {}", source_zip_path, e))?;
 
     let mut extraction_count = 0;
-    let mut installed_files_relative: Vec<String> = Vec::new();
+    let mut determined_base_dir: Option<&str> = None; // Track if we are in plugins or autorun
 
     for i in 0..archive.len() {
         let mut file = archive.by_index(i)
             .map_err(|e| format!("Failed to get entry {} from zip: {}", i, e))?;
 
-        let entry_path_str = match file.enclosed_name() {
+        let original_entry_path = match file.enclosed_name() {
             Some(path) => path.to_path_buf(),
             None => {
                 log::warn!("Skipping zip entry with potentially unsafe path: {}", file.name());
@@ -675,53 +717,96 @@ async fn install_mod_from_zip(
             }
         };
 
-        log::debug!("Processing zip entry: {:?}", entry_path_str);
+        log::debug!("Processing zip entry: {:?}", original_entry_path);
 
-        // --- Determine if and how to extract --- 
-        let mut extraction_target_rel_path: Option<PathBuf> = None;
+        // --- Determine target path within the mod directory --- 
+        let mut relative_path_for_extraction: Option<PathBuf> = None;
+        let mut current_entry_base: Option<&str> = None;
 
-        // Check if path starts with "reframework/", "plugins/", or "autorun/"
-        let components: Vec<_> = entry_path_str.components().collect();
+        let components: Vec<_> = original_entry_path.components().collect();
+
+        // Case 1: Starts directly with "plugins" or "autorun"
         if components.len() > 1 {
-            if let Some(first_comp) = components[0].as_os_str().to_str() {
-                if first_comp == "reframework" || first_comp == "plugins" || first_comp == "autorun" {
-                    // Path starts directly with a target dir (e.g., "plugins/MyMod.dll")
-                    // The relative path for extraction is the whole path.
-                    extraction_target_rel_path = Some(entry_path_str.clone());
-                     log::debug!("  -> Case 1: Direct match ({:?})", extraction_target_rel_path);
-                }
-            }
-        }
-        
-        // If not direct match, check if it's inside a top-level folder named reframework/plugins/autorun
-        if extraction_target_rel_path.is_none() && components.len() > 2 {
              if let Some(first_comp_str) = components[0].as_os_str().to_str() {
-                 // Check if second component is one of our target dirs
-                 if let Some(second_comp_str) = components[1].as_os_str().to_str() {
-                      if second_comp_str == "reframework" || second_comp_str == "plugins" || second_comp_str == "autorun" {
-                          // Path is like "SomeModFolder/reframework/plugins/thing.lua"
-                          // Relative path for extraction starts from the *second* component.
-                          extraction_target_rel_path = Some(entry_path_str.iter().skip(1).collect());
-                          log::debug!("  -> Case 2: Nested match under {} ({:?})", first_comp_str, extraction_target_rel_path);
-                      }
+                 if first_comp_str == "plugins" || first_comp_str == "autorun" {
+                     current_entry_base = Some(first_comp_str);
+                     relative_path_for_extraction = Some(original_entry_path.iter().skip(1).collect());
+                     log::debug!("  -> Case 1: Direct match '{}', relative: {:?}", first_comp_str, relative_path_for_extraction);
                  }
              }
          }
 
-        // If neither matches, skip this entry
-        if extraction_target_rel_path.is_none() {
-            log::debug!("  -> Skipping entry, does not match extraction criteria.");
+        // Case 2: Starts with "reframework/plugins" or "reframework/autorun"
+        if relative_path_for_extraction.is_none() && components.len() > 2 {
+             if let Some(first_comp_str) = components[0].as_os_str().to_str() {
+                 if first_comp_str == "reframework" {
+                     if let Some(second_comp_str) = components[1].as_os_str().to_str() {
+                         if second_comp_str == "plugins" || second_comp_str == "autorun" {
+                             current_entry_base = Some(second_comp_str);
+                             relative_path_for_extraction = Some(original_entry_path.iter().skip(2).collect());
+                              log::debug!("  -> Case 2: Nested match 'reframework/{}', relative: {:?}", second_comp_str, relative_path_for_extraction);
+                         }
+                     }
+                 }
+             }
+         }
+
+        // Case 3: Starts with <FolderName>/plugins or <FolderName>/autorun
+         if relative_path_for_extraction.is_none() && components.len() > 2 {
+             // No need to check first component name
+             if let Some(second_comp_str) = components[1].as_os_str().to_str() {
+                 if second_comp_str == "plugins" || second_comp_str == "autorun" {
+                     current_entry_base = Some(second_comp_str);
+                     relative_path_for_extraction = Some(original_entry_path.iter().skip(2).collect());
+                      log::debug!("  -> Case 3: Nested match '{}/{}', relative: {:?}", components[0].as_os_str().to_string_lossy(), second_comp_str, relative_path_for_extraction);
+                 }
+             }
+         }
+
+        // Case 4: Starts with <FolderName>/reframework/plugins or <FolderName>/reframework/autorun
+        if relative_path_for_extraction.is_none() && components.len() > 3 {
+            if let Some(second_comp_str) = components[1].as_os_str().to_str() {
+                if second_comp_str == "reframework" {
+                    if let Some(third_comp_str) = components[2].as_os_str().to_str() {
+                        if third_comp_str == "plugins" || third_comp_str == "autorun" {
+                            current_entry_base = Some(third_comp_str);
+                            relative_path_for_extraction = Some(original_entry_path.iter().skip(3).collect());
+                            log::debug!("  -> Case 4: Nested match '{}/reframework/{}', relative: {:?}", components[0].as_os_str().to_string_lossy(), third_comp_str, relative_path_for_extraction);
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- Validate and Finalize Path ---
+        if relative_path_for_extraction.is_none() || current_entry_base.is_none(){
+            log::debug!("  -> Skipping entry, does not match expected structure (plugins/autorun).");
             continue;
         }
 
+        let path_inside_mod_dir = relative_path_for_extraction.unwrap();
+        let entry_base = current_entry_base.unwrap();
+
+        // Ensure consistency: If the zip contains both plugins/ and autorun/ files,
+        // we should probably fail or handle it more explicitly.
+        // For now, we use the base dir determined during the initial peek.
+        if entry_base != base_target_dir_name {
+             log::warn!(
+                 "Skipping entry {:?}: Belongs to '{}', but mod was classified as '{}' based on initial zip scan.",
+                 original_entry_path, entry_base, base_target_dir_name
+             );
+             continue;
+         }
+
+        // Prevent empty paths after stripping prefixes
+         if path_inside_mod_dir.as_os_str().is_empty() {
+             log::debug!("  -> Skipping entry {:?}: Resulting path inside mod dir is empty.", original_entry_path);
+             continue;
+         }
+
+        let final_target_path = mod_target_dir_abs.join(&path_inside_mod_dir);
+
         // --- Perform Extraction ---
-        // Store the relative path *within reframework* determined earlier
-        let rel_path_in_reframework = extraction_target_rel_path.unwrap();
-        let final_target_path = target_reframework_path.join(&rel_path_in_reframework);
-
-        // Calculate the path relative to the *game root* for storage
-        let relative_path_to_game_root = PathBuf::from("reframework").join(&rel_path_in_reframework); // Path relative to game_root
-
         if file.is_dir() {
              log::debug!("  -> Creating directory: {:?}", final_target_path);
             fs::create_dir_all(&final_target_path)
@@ -754,19 +839,11 @@ async fn install_mod_from_zip(
                 .map_err(|e| format!("Failed to copy content to {:?}: {}", final_target_path, e))?;
              extraction_count += 1;
         }
-
-        // Add the relative path (from game root) to our list AFTER successful extraction/creation
-        if let Some(path_str) = relative_path_to_game_root.to_str() {
-             installed_files_relative.push(path_str.to_string());
-             log::debug!("  -> Tracked relative path: {}", path_str);
-         } else {
-             log::warn!("Could not convert relative path {:?} to string for tracking.", relative_path_to_game_root);
-         }
     }
 
-    // --- Post Extraction & Metadata Update ---
+    // --- 4. Post Extraction & Metadata Update ---
     if extraction_count > 0 {
-        log::info!("Successfully extracted {} files from {} into {}.", extraction_count, source_zip_path.display(), target_reframework_path.display());
+        log::info!("Successfully extracted {} files from {} into {:?}.", extraction_count, source_zip_path.display(), mod_target_dir_abs);
 
         // --- Update modlist.json ---
         log::info!("Updating modlist.json...");
@@ -790,21 +867,24 @@ async fn install_mod_from_zip(
             Err(e) => return Err(format!("Failed to read modlist.json: {}", e)),
         };
 
+        // Convert the relative directory path to string for storage
+        let installed_dir_str = mod_target_dir_rel.to_str()
+            .ok_or_else(|| format!("Failed to convert mod directory path {:?} to string", mod_target_dir_rel))?
+            .replace("\\", "/"); // Ensure forward slashes
+
         // Create new metadata entry
-        // Note: Using the 'installed_files_relative' vec collected during extraction
         let new_mod = ModMetadata {
             parsed_name: parsed_name.clone(),
             original_zip_name: original_zip_name.clone(),
-            installed_files: installed_files_relative, // Use the collected relative paths
+            installed_directory: installed_dir_str, // Store relative path to the mod's directory
             source: "local_zip".to_string(),
             version: None, // TODO: Potentially parse version from filename if pattern allows
         };
 
-        // TODO: Add logic here to check if a mod with `parsed_name` already exists.
-        // If it exists, decide whether to update its `installed_files` or reject the install.
-        // For now, we just add it, which could lead to duplicates in the list.
+        // Remove existing entry if found (simple overwrite based on parsed_name)
+        mods_list.retain(|m| m.parsed_name != parsed_name);
         mods_list.push(new_mod);
-        log::debug!("Added new mod metadata: {:?}", parsed_name);
+        log::debug!("Added/Updated mod metadata for: '{}'", parsed_name);
 
         // Serialize and write back
         let json_string = serde_json::to_string_pretty(&mods_list)
@@ -890,88 +970,64 @@ async fn toggle_mod_enabled_state(
         .find(|m| m.parsed_name == mod_name)
         .ok_or_else(|| format!("Mod '{}' not found in modlist.json", mod_name))?;
 
-    log::debug!("Found metadata for mod '{}'. Installed files: {:?}", mod_name, mod_meta.installed_files);
+    log::debug!(
+        "Found metadata for mod '{}'. Installed directory: {}",
+        mod_name,
+        mod_meta.installed_directory
+    );
 
-    // --- 3. Rename Files --- 
-    let mut renamed_count = 0;
-    let mut errors: Vec<String> = Vec::new();
+    // --- 3. Rename Directory --- 
+    let installed_dir_rel = PathBuf::from(&mod_meta.installed_directory);
+    let installed_dir_abs = game_root.join(&installed_dir_rel);
+    let disabled_dir_str = format!("{}.disabled", mod_meta.installed_directory);
+    let disabled_dir_abs = game_root.join(PathBuf::from(&disabled_dir_str));
 
-    for relative_path_str in &mod_meta.installed_files {
-        // Focus on key file types that are typically toggled
-        let is_key_file = relative_path_str.ends_with(".lua") || relative_path_str.ends_with(".dll");
-
-        if !is_key_file {
-            continue;
-        }
-
-        let current_path_rel = PathBuf::from(relative_path_str);
-        let current_path_abs = game_root.join(&current_path_rel);
-        let disabled_path_str = format!("{}.disabled", relative_path_str);
-        let disabled_path_rel = PathBuf::from(&disabled_path_str);
-        let disabled_path_abs = game_root.join(&disabled_path_rel);
-
-        log::debug!("  Checking file: {:?}", current_path_abs);
-
-        if enable {
-            // Enable: Rename *.disabled to * (if it exists)
-            if disabled_path_abs.exists() {
-                log::info!("    Enabling: Renaming {:?} -> {:?}", disabled_path_abs, current_path_abs);
-                match fs::rename(&disabled_path_abs, &current_path_abs) {
-                    Ok(_) => renamed_count += 1,
-                    Err(e) => {
-                        let err_msg = format!("Failed to rename {:?} to {:?}: {}", disabled_path_abs, current_path_abs, e);
-                        log::error!("    {}", err_msg);
-                        errors.push(err_msg);
-                    }
+    if enable {
+        // Enable: Rename *.disabled to * (if it exists)
+        if disabled_dir_abs.exists() {
+            log::info!("Enabling mod '{}': Renaming {:?} -> {:?}", mod_name, disabled_dir_abs, installed_dir_abs);
+            match fs::rename(&disabled_dir_abs, &installed_dir_abs) {
+                Ok(_) => {
+                    log::info!("Successfully enabled mod '{}'", mod_name);
+                    Ok(())
                 }
-            } else if current_path_abs.exists() {
-                 log::debug!("    Already enabled (or not disableable): {:?}", current_path_abs);
-                 // File exists without .disabled, already in desired state (or wasn't disabled)
-                 renamed_count += 1; // Count it as 'successful' for logic below
-            } else {
-                 // Neither file exists - this indicates an issue
-                 let err_msg = format!("Cannot enable mod '{}': Key file {:?} (or its .disabled version) not found.", mod_name, current_path_abs);
-                 log::warn!("    {}", err_msg);
-                 errors.push(err_msg);
+                Err(e) => {
+                    let err_msg = format!("Failed to rename {:?} to {:?}: {}", disabled_dir_abs, installed_dir_abs, e);
+                    log::error!("{}", err_msg);
+                    Err(err_msg)
+                }
             }
+        } else if installed_dir_abs.exists() {
+            log::info!("Mod '{}' is already enabled (directory {:?} exists).", mod_name, installed_dir_abs);
+            Ok(()) // Already in desired state
         } else {
-            // Disable: Rename * to *.disabled (if it exists)
-            if current_path_abs.exists() {
-                 log::info!("    Disabling: Renaming {:?} -> {:?}", current_path_abs, disabled_path_abs);
-                match fs::rename(&current_path_abs, &disabled_path_abs) {
-                    Ok(_) => renamed_count += 1,
-                    Err(e) => {
-                         let err_msg = format!("Failed to rename {:?} to {:?}: {}", current_path_abs, disabled_path_abs, e);
-                         log::error!("    {}", err_msg);
-                        errors.push(err_msg);
-                    }
-                }
-            } else if disabled_path_abs.exists() {
-                 log::debug!("    Already disabled: {:?}", disabled_path_abs);
-                 // File already has .disabled, already in desired state
-                 renamed_count += 1; // Count it as 'successful' for logic below
-            } else {
-                 // Neither file exists - this indicates an issue
-                 let err_msg = format!("Cannot disable mod '{}': Key file {:?} (or its .disabled version) not found.", mod_name, current_path_abs);
-                 log::warn!("    {}", err_msg);
-                 errors.push(err_msg);
-            }
+            let err_msg = format!("Cannot enable mod '{}': Neither directory {:?} nor {:?} found.", mod_name, installed_dir_abs, disabled_dir_abs);
+            log::error!("{}", err_msg);
+            Err(err_msg)
         }
-    }
-
-    // --- 4. Check Result --- 
-    if !errors.is_empty() {
-        // Return the collected errors
-        Err(errors.join("; \n"))
-    } else if renamed_count == 0 {
-         // This case happens if the mod had no .lua or .dll files listed
-         log::warn!("Mod '{}' has no .lua or .dll files listed in modlist.json. No files were toggled.", mod_name);
-         // We can consider this success or failure based on requirements.
-         // Let's treat it as success for now, as no *errors* occurred during rename attempts.
-         Ok(()) // Or return Err("No toggleable files found...")
     } else {
-        log::info!("Successfully toggled {} files for mod '{}'", renamed_count, mod_name);
-        Ok(())
+        // Disable: Rename * to *.disabled (if it exists)
+        if installed_dir_abs.exists() {
+            log::info!("Disabling mod '{}': Renaming {:?} -> {:?}", mod_name, installed_dir_abs, disabled_dir_abs);
+            match fs::rename(&installed_dir_abs, &disabled_dir_abs) {
+                Ok(_) => {
+                    log::info!("Successfully disabled mod '{}'", mod_name);
+                    Ok(())
+                }
+                Err(e) => {
+                    let err_msg = format!("Failed to rename {:?} to {:?}: {}", installed_dir_abs, disabled_dir_abs, e);
+                    log::error!("{}", err_msg);
+                    Err(err_msg)
+                }
+            }
+        } else if disabled_dir_abs.exists() {
+            log::info!("Mod '{}' is already disabled (directory {:?} exists).", mod_name, disabled_dir_abs);
+            Ok(()) // Already in desired state
+        } else {
+             let err_msg = format!("Cannot disable mod '{}': Neither directory {:?} nor {:?} found.", mod_name, installed_dir_abs, disabled_dir_abs);
+             log::error!("{}", err_msg);
+             Err(err_msg)
+        }
     }
 }
 
@@ -999,9 +1055,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init()); // Keep shell plugin for other potential uses (if any)
 
+
     // Continue with the rest of the builder configuration
+    // --- Add Cache State ---
     builder
-        // --- Add Cache State ---
         .manage(api_cache) // Manage the ApiCache instance
         .invoke_handler(tauri::generate_handler![
             finalize_setup,

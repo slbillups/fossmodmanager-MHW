@@ -9,10 +9,7 @@
   "permissions": [
     "core:path:default",
     "core:app:default",
-    "core:window:allow-close",
-    "core:window:allow-show",
-    "core:window:allow-hide",
-    "core:window:allow-set-focus",
+    "core:window:default",
     "core:webview:allow-internal-toggle-devtools",
     "dialog:allow-open",
     "dialog:allow-message",

@@ -28,3 +28,5 @@ backup/*
 example_mods/*
 nextsteps.json
 **/*.jsx.back
+*.md
+updateinstructions.json
