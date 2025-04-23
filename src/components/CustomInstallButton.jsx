@@ -34,7 +34,7 @@ const CustomInstallButton = ({ onClick, children, icon, disabled, emphasized = f
   }, []);
 
   return (
-    <div style={{ position: 'relative', display: 'inline-block', color: 'yellow' }}>
+    <div className={styles.buttonContainer}>
       <button 
         ref={buttonRef}
         className={`${styles.button} ${emphasized ? styles.pulse : ''}`}
@@ -46,7 +46,7 @@ const CustomInstallButton = ({ onClick, children, icon, disabled, emphasized = f
         <span>{children}</span>
       </button>
       <div className={styles.disclaimer}>
-        Yep, I was nerd-sniped by codepen and<br />worked way too long on this button.
+        Yep, I was nerd-sniped by codepen and worked way too long on this button.
       </div>
     </div>
   );

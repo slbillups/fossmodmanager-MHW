@@ -12,40 +12,6 @@ body {
   src: url('./fonts/CrimsonText-SemiBold.ttf') format('truetype');
 }
 
-
-/* Styles for the new Top Toolbar */
-.top-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  margin-bottom: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
-}
-
-/* Style toolbar buttons for a more native feel */
-.top-toolbar .ant-btn-text {
-  color: rgba(255, 255, 255, 0.65); /* Slightly dimmer text color */
-  padding: 4px 10px; /* Adjust padding */
-}
-
-.top-toolbar .ant-btn-text:hover {
-  background-color: rgba(255, 255, 255, 0.08); /* Subtle hover */
-  color: rgba(255, 255, 255, 0.85); /* Slightly brighter text on hover */
-}
-
-.top-toolbar .ant-btn-primary {
-  /* Override default Ant Design primary button style */
-  background-color: #303030; /* Darker background */
-  border-color: #424242; /* Matching border */
-  box-shadow: none; /* Remove default shadow */
-  /* You might need to adjust text color if background is too dark */
-  /* color: rgba(255, 255, 255, 0.85); */ 
-
-  /* place item in the center of the toolbar */
-  margin-right: 50%;
-}
-
 .ant-table-wrapper {
   padding-inline: 1.5rem;
 }

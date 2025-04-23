@@ -17,10 +17,28 @@
         "height": 600,
         "decorations": false,
         "label": "main"
+      },
+      {
+        "title": "Setup",
+        "width": 600,
+        "height": 400,
+        "decorations": true,
+        "label": "setup",
+        "visible": false
       }
     ],
     "security": {
-      "csp": "default-src 'self' ipc: http://ipc.localhost; connect-src * ipc: http://ipc.localhost; img-src 'self' https://staticdelivery.nexusmods.com https://via.placeholder.com data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval';",
+      "csp": {
+        "default-src": "'self' ipc: http://ipc.localhost",
+        "connect-src": "* ipc: http://ipc.localhost",
+        "img-src": "'self' 'unsafe-inline' asset: asset://* asset://localhost/* http://asset.localhost https://asset.localhost blob: data: *",
+        "style-src": "'self' 'unsafe-inline'",
+        "script-src": "'self' 'unsafe-inline' 'unsafe-eval'"
+      },
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**/*"]
+      },
       "headers": {
         "Cross-Origin-Opener-Policy": "same-origin",
         "Cross-Origin-Embedder-Policy": "unsafe-none",
@@ -36,14 +54,14 @@
           "Application-Sub": "fossmodmanager-vortexAPI-test",
           "Application-Author": "FossModManager",
           "Application-Website": "https://github.com/slbillups/fossmodmanager",
-          "Application-Description": "A mod manager for FossMods"
+          "Application-Description": "A mod manager for all"
         }
       },
       "capabilities": [
         {
-          "identifier": "main-capability",
-          "description": "Core application capabilities",
-          "windows": ["main"],
+          "identifier": "fossmodmanager-core-capability",
+          "description": "Core application capabilities without file system access",
+          "windows": ["main", "setup"],
           "permissions": [
             "core:path:default",
             "core:app:default",
@@ -52,120 +70,172 @@
             "core:window:allow-hide",
             "core:window:allow-set-focus",
             "core:webview:allow-internal-toggle-devtools",
-            "dialog:allow-open",
-            "dialog:allow-message",
-            "fs:allow-exists",
-            "fs:allow-mkdir",
-            "fs:allow-read-dir",
-            "opener:allow-open-path",
+            "dialog:allow-message"
+          ]
+        },
+        {
+          "identifier": "fossmodmanager-http-capability",
+          "description": "Network capabilities for API access",
+          "windows": ["main"],
+          "permissions": [
             "http:default",
             {
               "identifier": "http:allow-fetch",
-              "allow": ["https://api.nexusmods.com/*", "https://api.github.com/*"]
+              "scope": {
+                "allow": ["https://api.nexusmods.com/*", "https://api.github.com/*"]
+              }
             }
           ]
         },
         {
-          "identifier": "fs-read-config",
+          "identifier": "fossmodmanager-fs-read-config",
           "description": "Allows reading the application config file.",
-          "windows": ["main"],
+          "windows": ["main", "setup"],
           "permissions": [
             "core:path:default",
             {
               "identifier": "fs:allow-read-file",
-              "scope": { "allow": ["$APPCONFIG/userconfig.json"] }
+              "scope": { "allow": ["$APPCONFIG/fossmodmanager/userconfig.json"] }
             }
           ]
         },
         {
-          "identifier": "fs-write-config",
+          "identifier": "fossmodmanager-fs-write-config",
           "description": "Allows writing the application config file.",
-          "windows": ["main"],
+          "windows": ["main", "setup"],
           "permissions": [
             "core:path:default",
             {
               "identifier": "fs:allow-write-file",
-              "scope": { "allow": ["$APPCONFIG/userconfig.json"] }
+              "scope": { "allow": ["$APPCONFIG/fossmodmanager/userconfig.json"] }
+            },
+            {
+              "identifier": "fs:allow-mkdir",
+              "scope": { "allow": ["$APPCONFIG/fossmodmanager"] }
             }
           ]
         },
         {
-          "identifier": "fs-delete-config",
+          "identifier": "fossmodmanager-fs-delete-config",
           "description": "Allows deleting the application config file.",
           "windows": ["main"],
           "permissions": [
             "core:path:default",
             {
               "identifier": "fs:allow-remove",
-              "scope": { "allow": ["$APPCONFIG/userconfig.json"] }
+              "scope": { "allow": ["$APPCONFIG/fossmodmanager/userconfig.json"] }
             }
           ]
         },
         {
-          "identifier": "fs-read-modlist",
+          "identifier": "fossmodmanager-fs-read-modlist",
           "description": "Allows reading the application mod list file.",
           "windows": ["main"],
           "permissions": [
             "core:path:default",
             {
               "identifier": "fs:allow-read-file",
-              "scope": { "allow": ["$APPCONFIG/modlist.json"] }
+              "scope": { "allow": ["$APPDATA/fossmodmanager/modlist.json"] }
             }
           ]
         },
         {
-          "identifier": "fs-write-modlist",
+          "identifier": "fossmodmanager-fs-write-modlist",
           "description": "Allows writing the application mod list file.",
           "windows": ["main"],
           "permissions": [
             "core:path:default",
             {
               "identifier": "fs:allow-write-file",
-              "scope": { "allow": ["$APPCONFIG/modlist.json"] }
+              "scope": { "allow": ["$APPDATA/fossmodmanager/modlist.json"] }
             },
             {
               "identifier": "fs:allow-mkdir",
-              "scope": { "allow": ["$APPCONFIG"] }
+              "scope": { "allow": ["$APPDATA/fossmodmanager"] }
             }
           ]
         },
         {
-          "identifier": "fs-read-mods",
-          "description": "Allows reading game directory structure to check mod status.",
-          "windows": ["main"],
-          "permissions": [
-             "core:path:default",
-            {
-              "identifier": "fs:allow-exists",
-              "scope": { "allow": ["$HOME/**"] }
-            }
-          ]
-        },
-        {
-          "identifier": "fs-install-mod",
-          "description": "Allows reading mod zip files and extracting/writing them to the game directory.",
+          "identifier": "fossmodmanager-fs-mod-cache",
+          "description": "Allows managing cached mod data and extracted game assets.",
           "windows": ["main"],
           "permissions": [
             "core:path:default",
             {
               "identifier": "fs:allow-read-file",
-              "scope": { "allow": ["$DOWNLOAD/**.zip", "$DESKTOP/**.zip", "$DOCUMENT/**.zip", "$HOME/**.zip"] }
-            },
-             {
-              "identifier": "fs:allow-read-dir",
-              "scope": { "allow": ["$HOME/**"] }
+              "scope": { "allow": ["$APPCACHE/fossmodmanager/**"] }
             },
             {
               "identifier": "fs:allow-write-file",
-              "scope": { "allow": ["$HOME/**"] }
+              "scope": { "allow": ["$APPCACHE/fossmodmanager/**"] }
             },
             {
               "identifier": "fs:allow-mkdir",
-              "scope": { "allow": ["$HOME/**"] }
+              "scope": { "allow": ["$APPCACHE/fossmodmanager/**"] }
             },
             {
               "identifier": "fs:allow-remove",
-              "scope": { "allow": ["$HOME/**"] }
+              "scope": { "allow": ["$APPCACHE/fossmodmanager/**"] }
+            },
+            {
+              "identifier": "fs:allow-read-dir",
+              "scope": { "allow": ["$APPCACHE/fossmodmanager/**"] }
+            }
+          ]
+        },
+        {
+          "identifier": "fossmodmanager-fs-read-downloads",
+          "description": "Allows reading mod zip files for installation.",
+          "windows": ["main"],
+          "permissions": [
+            "core:path:default",
+            {
+              "identifier": "dialog:allow-open",
+              "scope": {
+                "allow": ["**/*.zip"]
+              }
+            },
+            {
+              "identifier": "fs:allow-read-file",
+              "scope": { "allow": ["$DOWNLOAD/**.zip", "$DESKTOP/**.zip", "$DOCUMENT/**.zip"] }
+            }
+          ]
+        },
+        {
+          "identifier": "fossmodmanager-game-binary-setup",
+          "description": "Allows selecting game binary during setup.",
+          "windows": ["setup"],
+          "permissions": [
+            "core:path:default",
+            {
+              "identifier": "dialog:allow-open",
+              "scope": {
+                "allow": ["**/*.exe", "**/RE*", "**/re*"]
+              }
+            }
+          ]
+        },
+        {
+          "identifier": "fossmodmanager-fs-game-integration",
+          "description": "Allows verified access to user-selected game directories.",
+          "windows": ["main"],
+          "permissions": [
+            "core:path:default",
+            {
+              "identifier": "fs:allow-exists",
+              "scope": { "allow": ["$RESOURCE/**"] }
+            },
+            {
+              "identifier": "fs:allow-read-file",
+              "scope": { "allow": ["$RESOURCE/**"] }
+            },
+            {
+              "identifier": "fs:allow-read-dir",
+              "scope": { "allow": ["$RESOURCE/**"] }
+            },
+            {
+              "identifier": "opener:allow-open-path",
+              "scope": { "allow": ["$RESOURCE/**"] }
             }
           ]
         }
@@ -173,6 +243,10 @@
     }
   },
   "bundle": {
+    "externalBin": [
+      "binaries/extractgameassets.sh",
+      "binaries/REtool.exe"
+    ],
     "active": true,
     "targets": "all",
     "icon": [
@@ -184,6 +258,17 @@
     ]
   },
   "plugins": {
-
+    "protocols": {
+      "asset": {
+        "schemas": ["asset"],
+        "mimeTypes": {
+          "png": "image/png",
+          "jpg": "image/jpeg",
+          "jpeg": "image/jpeg",
+          "gif": "image/gif",
+          "webp": "image/webp"
+        }
+      }
+    }
   }
 }

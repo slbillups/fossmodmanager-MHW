@@ -32,29 +32,6 @@ function App() {
             position: 'relative',
           }}
         >
-          {/* Top Toolbar Area */}
-          <div className="top-toolbar">
-            <Space className="top-toolbar-left">
-              {/* Use Link component for navigation */}
-              <Link to="/">
-                <Button type="text" icon={<AppstoreOutlined />}>
-                  Games
-                </Button>
-              </Link>
-              <Link to="/settings">
-                <Button type="text" icon={<SettingOutlined />}>
-                  Settings
-                </Button>
-              </Link>
-              <Link to="/search">
-                <Button type="text" icon={<SearchOutlined />}>
-                  Search
-                </Button>
-              </Link>
-            </Space>
-            <Space className="top-toolbar-right" />
-          </div>
-
           {/* Router Outlet: Content is rendered here based on the route */}
           <Outlet />
 

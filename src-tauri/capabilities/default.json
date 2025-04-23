@@ -1,10 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "desktop-capability",
-  "description": "This program allows access to the steam filesystem as well as the $HOME/.config/fossmodmanager directory and $APPDATA/fossmodmanager directory as well as the $HOME/.config/fossmodmanager directory and $APPDATA/fossmodmanager directory",
+  "description": "This program allows access to the steam filesystem as well as the $HOME/.config/fossmodmanager directory and $APPDATA/fossmodmanager directory and $HOME/.config/fossmodmanager directory and $APPDATA/fossmodmanager directory",
   "windows": [
     "main",
     "setup"
+  ],
+  "platforms": [
+    "linux"
   ],
   "permissions": [
     "core:path:default",
@@ -27,6 +30,38 @@
         }
       ]
     },
+    {
+      "identifier": "fs:allow-read-file",
+      "allow": [
+        {
+          "path": "$RESOURCE/*"
+        },
+        {
+          "path": "**/*"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-write-file",
+      "allow": [
+        {
+          "path": "**/*.ini"
+        },
+        {
+          "path": "**/fossmodmanager/**"
+        }
+      ]
+    },
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "extractgameassets.sh",
+          "sidecar": true
+        }
+      ]
+    },
+    "shell:allow-open",
     "shell:default"
   ]
 }

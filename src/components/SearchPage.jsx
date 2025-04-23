@@ -1,24 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Select, Card, List, Space, Row, Col, Typography, Spin } from 'antd';
-import { AppstoreOutlined, BarsOutlined } from '@ant-design/icons'; // Example icons
-import { invoke } from '@tauri-apps/api/core'; // Added invoke import
-import { open } from '@tauri-apps/plugin-shell'; // <-- Import the open function
+import { Select, Card, List, Space, Row, Col, Typography, Spin, Input } from 'antd';
+import { AppstoreOutlined, BarsOutlined, SearchOutlined } from '@ant-design/icons';
+import { invoke } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-shell';
 
 const { Title, Text } = Typography;
 const { Meta } = Card;
+const { Search } = Input;
 
-// Dummy data - replace with actual game data and API calls
-const userGames = [
-  { value: 'darksouls', label: 'Dark Souls' }, // Assuming value is domain name
-  { value: 'darksouls2', label: 'Dark Souls II' }, // Assuming value is domain name
-  { value: 'eldenring', label: 'Elden Ring' }, // Assuming value is domain name
-  { value: 'sekiro', label: 'Sekiro: Shadows Die Twice' }, // Assuming value is domain name
-  { value: 'monsterhunterwilds', label: 'Monster Hunter Wilds' }, // Added for testing
-];
-
-// Dummy mod data - replace with API call results (kept for fallback maybe? or remove)
-// const dummyMods = { ... }; // We might remove this later
-
+// Sort options for the dropdown
 const sortOptions = [
   { value: 'default', label: 'Default' },
   { value: 'popular', label: 'Most Popular' },
@@ -32,162 +22,186 @@ const sortOrderOptions = [
 ];
 
 function SearchPage() {
-  const [selectedGame, setSelectedGame] = useState(null);
-  const [sortBy, setSortBy] = useState('default');
-  const [sortOrder, setSortOrder] = useState('desc');
   const [mods, setMods] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null); // Add error state
+  const [error, setError] = useState(null);
+  const [sortBy, setSortBy] = useState('default');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [page, setPage] = useState(1);
 
-  // Fetch mods from backend when selection changes
-  useEffect(() => {
-    if (selectedGame) {
-      setLoading(true);
-      setError(null); // Clear previous errors
-      setMods([]); // Clear previous mods
-
-      console.log(`Invoking fetch_trending_mods for game: ${selectedGame}`);
-
-      invoke('fetch_trending_mods', { gameDomainName: selectedGame })
-        .then(fetchedMods => {
-          console.log('Fetched mods:', fetchedMods);
-          // Map backend data (NexusMod) to frontend structure
-          const mappedMods = fetchedMods.map(mod => ({
-            id: mod.mod_id.toString(), // Ensure ID is string if needed by List key
-            title: mod.name,
-            description: mod.summary || 'No description available.', // Provide fallback
-            // Use picture_url, fallback to a placeholder if missing
-            imageUrl: mod.picture_url || `https://via.placeholder.com/150/808080/FFFFFF?text=${encodeURIComponent(mod.name)}`,
-            // Add other fields if needed, e.g., from mod.version, mod.author etc.
-          }));
-          setMods(mappedMods);
-        })
-        .catch(err => {
-          console.error('Error fetching trending mods:', err);
-          setError(`Failed to fetch mods: ${err}`);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-
-    } else {
-      setMods([]); // Clear mods if no game is selected
-      setError(null); // Clear error if no game is selected
-    }
-    // We don't need sortBy or sortOrder in dependency array yet as V1 trending doesn't use them
-  }, [selectedGame]);
-
-  const handleGameChange = (value) => {
-    setSelectedGame(value);
-  };
-
-  const handleSortByChange = (value) => {
-    setSortBy(value);
-  };
-
-  const handleSortOrderChange = (value) => {
-    setSortOrder(value);
-  };
-
-  // Filter options for Select component
-  const filterOption = (input, option) =>
-    (option?.label ?? '').toLowerCase().includes(input.toLowerCase());
-
-  // Function to handle clicking a mod card
-  const handleCardClick = async (mod) => {
-    if (!selectedGame) {
-      console.error("Cannot open mod page without a selected game.");
-      // Optionally: Show a user-facing error message here
-      return;
-    }
-    const modUrl = `https://www.nexusmods.com/${selectedGame}/mods/${mod.id}`;
-    console.log(`Opening URL: ${modUrl}`);
+  // Fetch mods from Nexus API
+  const fetchMods = async () => {
+    setLoading(true);
+    setError(null);
+    
     try {
-      await open(modUrl); // Use the imported open function
-    } catch (error) {
-      console.error("Failed to open URL:", error);
-      // Optionally: Show a user-facing error message here
-      setError(`Failed to open mod page: ${error}`); // Display error in the UI
+      // Hardcoded for Monster Hunter Wilds
+      const response = await invoke('fetch_trending_mods', { 
+        gameDomainName: "monsterhunterwilds",
+        page,
+        sortBy: sortBy === 'default' ? null : sortBy,
+        sortOrder
+      });
+      
+      setMods(response || []);
+    } catch (err) {
+      console.error('Error fetching mods:', err);
+      setError(typeof err === 'string' ? err : 'Failed to load mods');
+    } finally {
+      setLoading(false);
     }
   };
+
+  // Fetch mods when sort options change
+  useEffect(() => {
+    fetchMods();
+  }, [page, sortBy, sortOrder]);
+
+  // Handle opening a mod on Nexus Mods
+  const handleOpenMod = async (mod) => {
+    try {
+      // Construct Nexus Mods URL from mod ID
+      const url = `https://www.nexusmods.com/monsterhunterwilds/mods/${mod.mod_id}`;
+      await open(url);
+    } catch (err) {
+      console.error('Failed to open URL:', err);
+    }
+  };
+
+  // Filter mods by search query
+  const filteredMods = mods.filter(mod => 
+    searchQuery ? 
+      mod.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (mod.summary && mod.summary.toLowerCase().includes(searchQuery.toLowerCase()))
+    : true
+  );
 
   return (
-    <div style={{ padding: '24px' }}>
-      <Title level={3}>Search Mods</Title>
-
-      {/* Selection/Filter Row */}
-      <Row gutter={[16, 16]} style={{ marginBottom: '24px' }} align="bottom">
-        <Col xs={24} sm={12} md={8}>
-          <Text>Select Game:</Text>
-          <Select
-            showSearch
-            placeholder="Select a game"
-            optionFilterProp="children"
-            onChange={handleGameChange}
-            filterOption={filterOption}
-            options={userGames}
-            style={{ width: '100%' }}
+    <div style={{ padding: '0 24px 24px' }}>
+      <Title level={4}>Monster Hunter Wilds Mods</Title>
+      
+      {/* Search and filter controls */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} md={8}>
+          <Search
+            placeholder="Search mods..."
             allowClear
+            enterButton={<SearchOutlined />}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
           />
         </Col>
-        <Col xs={24} sm={12} md={8}>
-          <Text>Sort By:</Text>
+        <Col xs={12} md={6}>
           <Select
-            defaultValue="default"
-            onChange={handleSortByChange}
+            style={{ width: '100%' }}
+            placeholder="Sort by"
+            value={sortBy}
+            onChange={setSortBy}
             options={sortOptions}
-            style={{ width: '100%' }}
-            disabled={!selectedGame} // Disable until a game is selected
           />
         </Col>
-        <Col xs={24} sm={12} md={8}>
-           <Text>Order:</Text>
+        <Col xs={12} md={6}>
           <Select
-            defaultValue="desc"
-            onChange={handleSortOrderChange}
-            options={sortOrderOptions}
             style={{ width: '100%' }}
-            disabled={!selectedGame || sortBy === 'default'} // Also disable if sort is default
+            placeholder="Order"
+            value={sortOrder}
+            onChange={setSortOrder}
+            options={sortOrderOptions}
           />
+        </Col>
+        <Col xs={24} md={4}>
+          <Space>
+            <AppstoreOutlined 
+              onClick={() => setViewMode('grid')}
+              style={{ fontSize: 24, color: viewMode === 'grid' ? '#1890ff' : undefined, cursor: 'pointer' }}
+            />
+            <BarsOutlined 
+              onClick={() => setViewMode('list')}
+              style={{ fontSize: 24, color: viewMode === 'list' ? '#1890ff' : undefined, cursor: 'pointer' }}
+            />
+            <a onClick={fetchMods}>Refresh</a>
+          </Space>
         </Col>
       </Row>
-
-      {/* Mod Results Area */}
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '50px' }}>
+      
+      {/* Display error if any */}
+      {error && (
+        <div style={{ marginBottom: 16, padding: 16, background: '#fff1f0', border: '1px solid #ffa39e', borderRadius: 4 }}>
+          <Text type="danger">{error}</Text>
+        </div>
+      )}
+      
+      {/* Loading indicator */}
+      {loading && (
+        <div style={{ textAlign: 'center', padding: 40 }}>
           <Spin size="large" />
         </div>
-      ) : error ? ( // Display error message if an error occurred
-        <div style={{ textAlign: 'center', padding: '50px', color: 'red' }}>
-          <Text type="danger">Error: {error}</Text>
-        </div>
-      ) : selectedGame ? (
-        <List
-          grid={{ gutter: 16, xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 6 }} // Responsive grid
-          dataSource={mods}
-          renderItem={(mod) => (
-            <List.Item key={mod.id}> {/* Added key prop */}
-              <Card
-                hoverable
-                cover={<img alt={mod.title} src={mod.imageUrl} style={{height: 150, objectFit: 'cover'}} />}
-                onClick={() => handleCardClick(mod)} // <-- Add onClick handler here
-                // Add actions like download/view details later
-                // actions={[
-                //   <SettingOutlined key="setting" />,
-                //   <EditOutlined key="edit" />,
-                //   <EllipsisOutlined key="ellipsis" />,
-                // ]}
+      )}
+      
+      {/* Mods display */}
+      {!loading && (
+        viewMode === 'grid' ? (
+          <List
+            grid={{ gutter: 16, xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 6 }}
+            dataSource={filteredMods}
+            pagination={{
+              onChange: (page) => setPage(page),
+              pageSize: 20,
+              defaultCurrent: 1,
+              total: filteredMods.length,
+            }}
+            renderItem={(mod) => (
+              <List.Item>
+                <Card
+                  hoverable
+                  cover={mod.picture_url ? <img alt={mod.name} src={mod.picture_url} /> : null}
+                  onClick={() => handleOpenMod(mod)}
+                >
+                  <Meta 
+                    title={mod.name} 
+                    description={
+                      <>
+                        <div>Downloads: {mod.total_downloads ? mod.total_downloads.toLocaleString() : 'N/A'}</div>
+                        <div>Endorsements: {mod.endorsements_count ? mod.endorsements_count.toLocaleString() : 'N/A'}</div>
+                      </>
+                    } 
+                  />
+                </Card>
+              </List.Item>
+            )}
+          />
+        ) : (
+          <List
+            itemLayout="horizontal"
+            dataSource={filteredMods}
+            pagination={{
+              onChange: (page) => setPage(page),
+              pageSize: 10,
+              defaultCurrent: 1,
+              total: filteredMods.length,
+            }}
+            renderItem={(mod) => (
+              <List.Item 
+                actions={[
+                  <a onClick={() => handleOpenMod(mod)}>View on Nexus</a>
+                ]}
               >
-                <Meta title={mod.title} description={mod.description} />
-              </Card>
-            </List.Item>
-          )}
-           locale={{ emptyText: mods.length === 0 && !loading ? 'No trending mods found for this game.' : ' ' }} // Improved empty text
-        />
-      ) : (
-         <div style={{ textAlign: 'center', padding: '50px', color: 'rgba(255, 255, 255, 0.45)' }}>
-           <Text>Please select a game to search for mods.</Text>
-         </div>
+                <List.Item.Meta
+                  avatar={mod.picture_url ? <img alt={mod.name} src={mod.picture_url} style={{ width: 80, height: 80, objectFit: 'cover' }} /> : null}
+                  title={mod.name}
+                  description={
+                    <>
+                      <div>{mod.summary}</div>
+                      <div>Downloads: {mod.total_downloads ? mod.total_downloads.toLocaleString() : 'N/A'} | Endorsements: {mod.endorsements_count ? mod.endorsements_count.toLocaleString() : 'N/A'}</div>
+                    </>
+                  }
+                />
+              </List.Item>
+            )}
+          />
+        )
       )}
     </div>
   );

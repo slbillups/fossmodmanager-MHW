@@ -4,17 +4,17 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "dev:permissive": "TAURI_ENV=development pnpm tauri dev",
+    "dev:strict": "TAURI_ENV=production pnpm tauri dev",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "tauri": "tauri"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.5.0",
-    "@tauri-apps/plugin-dialog": "~2.0.2",
-    "@tauri-apps/plugin-fs": "~2.0.4",
+    "@tauri-apps/plugin-dialog": "~2.2.1",
+    "@tauri-apps/plugin-fs": "~2.2.1",
     "@tauri-apps/plugin-http": "~2.4.3",
-    "@tauri-apps/plugin-log": "~2.4.0",
     "@tauri-apps/plugin-opener": "^2.2.6",
     "@tauri-apps/plugin-shell": "~2.2.1",
     "@tauri-apps/plugin-store": "~2.2.0",
@@ -25,7 +25,9 @@
   },
   "devDependencies": {
     "@ant-design/icons": "^6.0.0",
+    "@tauri-apps/api": "^2.5.0",
     "@tauri-apps/cli": "^2.5.0",
+    "@tauri-apps/plugin-log": "~2.4.0",
     "@vitejs/plugin-react": "^4.4.1",
     "vite": "^6.3.2"
   },

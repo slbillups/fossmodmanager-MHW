@@ -4,6 +4,7 @@ import { DeleteOutlined, QuestionCircleOutlined, EditOutlined, SaveOutlined, Clo
 import { invoke } from '@tauri-apps/api/core';
 import { useGameConfig } from '../contexts/GameConfigContext';
 import '../AppCustomStyles.css';
+import ExtractGameAssets from './ExtractGameAssets';
 
 const { Title, Text, Paragraph } = Typography;
 const { confirm } = Modal;
@@ -126,9 +127,12 @@ function SettingsPage() {
           <Paragraph>
             <Text strong>Mods Directory: </Text><Text code>{`${gameConfig.game_root_path}/fossmodmanager/mods`}</Text>
           </Paragraph>
-          <Button onClick={handleOpenModsFolder}>
-            Open Mods Folder
-          </Button>
+          <Space>
+            <Button onClick={handleOpenModsFolder}>
+              Open Mods Folder
+            </Button>
+            <ExtractGameAssets gameRoot={gameConfig?.game_root_path} />
+          </Space>
         </Card>
       )}
       {!gameConfig && !isConfigLoading && !configError && (

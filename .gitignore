@@ -30,3 +30,8 @@ nextsteps.json
 **/*.jsx.back
 *.md
 updateinstructions.json
+src-tauri/binaries/*
+default.json.back
+*.code-workspace
+*.acf
+*.ttf

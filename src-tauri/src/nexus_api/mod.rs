@@ -11,15 +11,15 @@ use tokio::sync::Mutex;
 
 #[derive(Clone, Debug)]
 pub struct CacheEntry {
-    data: Vec<NexusMod>,
-    timestamp: Instant,
+    pub data: Vec<NexusMod>,
+    pub timestamp: Instant,
 }
 
 // Wrapper struct for the cache state to be managed by Tauri
 #[derive(Default)] // Add default derive for easy initialization
 pub struct ApiCache {
-    // The Mutex is now inside the struct
-    pub cache: Mutex<HashMap<String, CacheEntry>>,
+    // Store entries directly in a HashMap
+    pub entries: HashMap<String, CacheEntry>,
 }
 
 const CACHE_DURATION: Duration = Duration::from_secs(3600);
@@ -65,15 +65,15 @@ const APP_NAME: &str = "fossmodmanager";
 #[tauri::command]
 pub async fn fetch_trending_mods(
     game_domain_name: String,
-    state: tauri::State<'_, ApiCache>,
+    state: tauri::State<'_, std::sync::Arc<tokio::sync::Mutex<ApiCache>>>,
     // count: Option<u32>, // V1 trending doesn't seem to support count directly
 ) -> Result<Vec<NexusMod>, String> {
     let now = Instant::now();
 
     // --- Cache Check ---
     {
-        let cache_map = state.cache.lock().await;
-        if let Some(entry) = cache_map.get(&game_domain_name) {
+        let cache_map_lock = state.lock().await;
+        if let Some(entry) = cache_map_lock.entries.get(&game_domain_name) {
             if now.duration_since(entry.timestamp) < CACHE_DURATION {
                 println!(
                     "Cache hit for game: '{}'. Returning cached data.",
@@ -146,13 +146,13 @@ pub async fn fetch_trending_mods(
 
         // --- Cache Update ---
         {
-            let mut cache_map = state.cache.lock().await;
+            let mut cache_map_lock = state.lock().await;
             println!("Updating cache for game: '{}'", game_domain_name);
             let new_entry = CacheEntry {
                 data: mods.clone(),
                 timestamp: Instant::now(),
             };
-            cache_map.insert(game_domain_name.clone(), new_entry);
+            cache_map_lock.entries.insert(game_domain_name.clone(), new_entry);
         }
 
         Ok(mods)

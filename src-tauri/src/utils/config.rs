@@ -1,8 +1,8 @@
+use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, WebviewWindow};
-use log::{info, warn, error};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GameData {
@@ -77,7 +77,10 @@ pub fn find_game_paths_from_exe(executable_path_str: &str) -> Result<(PathBuf, P
 // New command to validate game path and return GameData without writing config
 #[tauri::command]
 pub async fn validate_game_installation(executable_path: String) -> Result<GameData, String> {
-    info!("Validating game installation from executable: {}", executable_path);
+    info!(
+        "Validating game installation from executable: {}",
+        executable_path
+    );
     let (game_root_path_buf, _) = find_game_paths_from_exe(&executable_path)?;
     let game_root_path_str = game_root_path_buf
         .to_str()
@@ -103,9 +106,12 @@ pub async fn save_game_config(app_handle: AppHandle, game_data: GameData) -> Res
     fs::create_dir_all(config_path.parent().unwrap()) // Ensure dir exists
         .map_err(|e| format!("Failed to create config directory: {}", e))?;
 
-    fs::write(&config_path, serde_json::to_string_pretty(&game_data)
-        .map_err(|e| format!("Failed to serialize GameData: {}", e))?)
-        .map_err(|e| format!("Failed to write config to {:?}: {}", config_path, e))?;
+    fs::write(
+        &config_path,
+        serde_json::to_string_pretty(&game_data)
+            .map_err(|e| format!("Failed to serialize GameData: {}", e))?,
+    )
+    .map_err(|e| format!("Failed to write config to {:?}: {}", config_path, e))?;
 
     info!("Successfully saved game config to {:?}", config_path);
     Ok(())
@@ -127,7 +133,10 @@ pub async fn load_game_config(app_handle: AppHandle) -> Result<Option<GameData>,
                         .unwrap_or(0)
                 ));
                 if let Err(backup_err) = fs::rename(&config_path, &backup_path) {
-                    error!("Failed to backup corrupted config file to {:?}: {}", backup_path, backup_err);
+                    error!(
+                        "Failed to backup corrupted config file to {:?}: {}",
+                        backup_path, backup_err
+                    );
                 } else {
                     info!("Backed up corrupted config file to {:?}", backup_path);
                 }
