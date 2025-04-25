@@ -1,5 +1,8 @@
 use tauri_plugin_os::OsExt;
 
-self!os().version(); // Get detailed OS version
+fn main() {
+    let os_info = tauri_plugin_os::os().version();
+    println!("OS Info: {:?}", os_info);
+}
 
-//todo: add osinfo to modregistry
+    //todo: add osinfo to modregistry

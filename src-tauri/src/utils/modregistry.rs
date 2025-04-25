@@ -102,7 +102,7 @@ pub struct LegacyModMetadata {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct LegacySkinMetadata {
+pub struct SkinMetadata {
     pub name: String,
     pub path: String,
     pub enabled: bool,
@@ -113,9 +113,9 @@ pub struct LegacySkinMetadata {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct LegacyModListContainer {
+pub struct ModListContainer {
     pub mods: Vec<LegacyModMetadata>,
-    pub skins: Vec<LegacySkinMetadata>,
+    pub skins: Vec<SkinMetadata>,
 }
 
 // --------------------------------
@@ -214,7 +214,7 @@ impl ModRegistry {
         let mut registry = Self::new();
         
         // First try the intermediate "ModListContainer" format
-        match serde_json::from_str::<LegacyModListContainer>(&content) {
+        match serde_json::from_str::<ModListContainer>(&content) {
             Ok(container) => {
                 info!("Found legacy ModListContainer format with {} mods and {} skins",
                       container.mods.len(), container.skins.len());
