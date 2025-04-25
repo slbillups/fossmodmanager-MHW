@@ -7,6 +7,20 @@ body {
   padding: 0; /* Remove default body padding */
 }
 
+/* Hide scrollbars universally but maintain scrolling functionality */
+html, body, div, .ant-layout, .ant-layout-content, .tab-content, .settings-container, .card {
+  -ms-overflow-style: none !important; /* IE and Edge */
+  scrollbar-width: none !important; /* Firefox */
+}
+
+/* Hide scrollbars in webkit browsers (Chrome, Safari, newer Edge) */
+::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+  display: none !important;
+}
+
 @font-face {
   font-family: 'CrimsonText-SemiBold';
   src: url('./fonts/CrimsonText-SemiBold.ttf') format('truetype');

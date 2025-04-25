@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { List, Card, Spin, Typography, Tag, notification } from 'antd';
+import React, { useState, useEffect, useRef } from 'react';
+import { List, Card, Spin, Typography, Tag, notification, Button, Switch, Tooltip } from 'antd';
 import { invoke } from '@tauri-apps/api/core';
-import { ReloadOutlined } from '@ant-design/icons';
+import { ReloadOutlined, CheckCircleOutlined, StopOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
 const { Meta } = Card;
@@ -11,8 +11,10 @@ const SkinMods = ({ gameRoot }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [imageData, setImageData] = useState({});
+  const [processingMod, setProcessingMod] = useState(null);
+  const cachedImageRefs = useRef({});
 
-  // Fetch installed skin mods by scanning for modinfo.ini files
+  // Fetch skin mods from the registry
   const fetchSkinMods = async () => {
     if (!gameRoot) return;
     
@@ -20,31 +22,20 @@ const SkinMods = ({ gameRoot }) => {
     setError(null);
     
     try {
-      // Call the Rust command to scan for skin mods
-      const mods = await invoke('scan_for_skin_mods', { gameRootPath: gameRoot });
-      console.log('Found skin mods:', mods);
-      setSkinMods(mods || []);
+      // First scan for new mods
+      const mods = await invoke('scan_for_skin_mods', { 
+        gameRootPath: gameRoot,
+        appHandle: {} // This gets ignored but helps with function signature
+      });
+      
+      // Then load all mods from registry (including enabled state)
+      const installedMods = await invoke('list_installed_skin_mods', {});
+      
+      console.log('Found skin mods:', installedMods);
+      setSkinMods(installedMods || []);
       
       // Load images for each mod
-      const imageDataMap = {};
-      for (const mod of mods || []) {
-        if (mod.screenshot_path) {
-          try {
-            // Use the invoke method to read the image through a Rust command
-            // This will respect the permissions defined in the capabilities
-            const imgData = await invoke('read_mod_image', { 
-              imagePath: mod.screenshot_path 
-            });
-            
-            if (imgData) {
-              imageDataMap[mod.screenshot_path] = `data:image/png;base64,${imgData}`;
-            }
-          } catch (imgErr) {
-            console.error('Error loading image:', mod.screenshot_path, imgErr);
-          }
-        }
-      }
-      setImageData(imageDataMap);
+      await loadModImages(installedMods || []);
     } catch (err) {
       console.error('Error loading skin mods:', err);
       setError(typeof err === 'string' ? err : 'Failed to load skin mods');
@@ -57,18 +48,151 @@ const SkinMods = ({ gameRoot }) => {
     }
   };
 
+  // Toggle mod enabled state
+  const toggleModEnabled = async (mod, enable) => {
+    if (!gameRoot) {
+      notification.error({
+        message: 'Error',
+        description: 'Game root directory is not set'
+      });
+      return;
+    }
+
+    const actionType = enable ? 'Enabling' : 'Disabling';
+    setProcessingMod(mod.path);
+    
+    try {
+      // Call the appropriate function based on the toggle action
+      if (enable) {
+        await invoke('enable_skin_mod', { 
+          gameRootPath: gameRoot,
+          modPath: mod.path
+        });
+      } else {
+        await invoke('disable_skin_mod', { 
+          gameRootPath: gameRoot,
+          modPath: mod.path
+        });
+      }
+      
+      notification.success({
+        message: `Skin ${enable ? 'Enabled' : 'Disabled'}`,
+        description: `Successfully ${enable ? 'enabled' : 'disabled'} ${mod.name}`
+      });
+      
+      // Refresh the mod list to show updated status
+      fetchSkinMods();
+    } catch (err) {
+      console.error(`Error ${actionType.toLowerCase()} skin mod:`, err);
+      notification.error({
+        message: `${actionType} Error`,
+        description: typeof err === 'string' ? err : `Failed to ${actionType.toLowerCase()} skin mod`
+      });
+    } finally {
+      setProcessingMod(null);
+    }
+  };
+
+  // Separate function to handle image loading with cache handling
+  const loadModImages = async (mods) => {
+    // First, check which images we need to load
+    const newImages = {};
+    const toLoadPaths = [];
+    
+    for (const mod of mods) {
+      if (!mod.thumbnail_path) continue;
+      
+      // Check if we already have this image in our state cache
+      if (imageData[mod.thumbnail_path]) {
+        // Use existing data
+        newImages[mod.thumbnail_path] = imageData[mod.thumbnail_path];
+      } 
+      // Check if we have it in our ref cache (persistent across renders)
+      else if (cachedImageRefs.current[mod.thumbnail_path]) {
+        newImages[mod.thumbnail_path] = cachedImageRefs.current[mod.thumbnail_path];
+      }
+      // Need to load it
+      else {
+        toLoadPaths.push(mod.thumbnail_path);
+      }
+    }
+    
+    // Skip the loading phase if we have all images cached
+    if (toLoadPaths.length === 0) {
+      setImageData(newImages);
+      return;
+    }
+    
+    // First attempt to read from the cache
+    try {
+      // Load the missing images from cache
+      const cachedImages = await invoke('get_cached_mod_images', { 
+        imagePaths: toLoadPaths 
+      }).catch(() => ({})); // Fail gracefully if command doesn't exist yet
+      
+      // Process successfully cached images
+      for (const path in cachedImages) {
+        if (cachedImages[path]) {
+          newImages[path] = `data:image/png;base64,${cachedImages[path]}`;
+          cachedImageRefs.current[path] = newImages[path]; // Save to persistent ref
+          
+          // Remove from the loading list
+          const index = toLoadPaths.indexOf(path);
+          if (index > -1) {
+            toLoadPaths.splice(index, 1);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Cache fetch failed, will load images directly:', err);
+      // Continue with direct loading if cache fails
+    }
+    
+    // Now load any remaining images directly
+    for (const path of toLoadPaths) {
+      try {
+        // Use the invoke method to read the image through a Rust command
+        const imgData = await invoke('read_mod_image', { imagePath: path });
+        
+        if (imgData) {
+          newImages[path] = `data:image/png;base64,${imgData}`;
+          cachedImageRefs.current[path] = newImages[path]; // Save to persistent ref
+          
+          // Cache the image for future use
+          try {
+            await invoke('cache_mod_image', { 
+              imagePath: path,
+              imageData: imgData
+            }).catch(() => {}); // Ignore errors if command doesn't exist yet
+          } catch (cacheErr) {
+            console.warn(`Failed to cache image ${path}:`, cacheErr);
+          }
+        }
+      } catch (imgErr) {
+        console.error('Error loading image:', path, imgErr);
+      }
+    }
+    
+    // Update state with all images
+    setImageData(newImages);
+  };
+  
+  // Load skin mods on initial render and when gameRoot changes
   useEffect(() => {
     fetchSkinMods();
+    return () => {
+      // Optional clean up can be added here if needed
+    };
   }, [gameRoot]);
 
   return (
     <div style={{ padding: '0 24px 24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <Title level={4}>Active Skins</Title>
+        <Title level={4}>Skins</Title>
         <div>
           <ReloadOutlined 
             onClick={fetchSkinMods} 
-            style={{ fontSize: 24, cursor: 'pointer' }}
+            style={{ fontSize: 24, cursor: 'pointer', marginRight: 16 }}
             spin={loading}
           />
         </div>
@@ -80,6 +204,7 @@ const SkinMods = ({ gameRoot }) => {
         </div>
       )}
       
+      {/* Available Skins Section */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40 }}>
           <Spin size="large" />
@@ -88,43 +213,83 @@ const SkinMods = ({ gameRoot }) => {
         <List
           grid={{ gutter: 16, xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 6 }}
           dataSource={skinMods}
-          locale={{ emptyText: 'No skin mods found. Extract game assets and add skin mods to the fossmodmanager/mods directory.' }}
+          locale={{ emptyText: 'No skin mods found. Add skin mods to the fossmodmanager/mods directory.' }}
           renderItem={(mod) => (
             <List.Item>
               <Card
                 hoverable
-                cover={mod.screenshot_path && imageData[mod.screenshot_path] ? (
+                cover={(
                   <div style={{ height: 200, position: 'relative' }}>
-                    <img 
-                      alt={mod.name || 'Mod Screenshot'} 
-                      src={imageData[mod.screenshot_path]}
-                      style={{ 
-                        height: '100%', 
-                        width: '100%', 
-                        objectFit: 'cover',
-                        display: 'block'
-                      }} 
-                      onError={(e) => {
-                        console.error('Image failed to load:', mod.screenshot_path);
-                        e.target.onerror = null;
-                        e.target.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
-                      }}
-                    />
+                    {mod.thumbnail_path && imageData[mod.thumbnail_path] ? (
+                      <img 
+                        alt={mod.name || 'Mod Screenshot'} 
+                        src={imageData[mod.thumbnail_path]}
+                        style={{ 
+                          height: '100%', 
+                          width: '100%', 
+                          objectFit: 'cover',
+                          display: 'block'
+                        }} 
+                        onError={(e) => {
+                          console.error('Image failed to load:', mod.thumbnail_path);
+                          e.target.onerror = null;
+                          e.target.src = '/icons/notfound.svg';
+                        }}
+                      />
+                    ) : (
+                      <img 
+                        alt="No screenshot available" 
+                        src="/icons/notfound.svg"
+                        style={{ 
+                          height: '100%', 
+                          width: '100%', 
+                          objectFit: 'contain',
+                          display: 'block',
+                          padding: '20px'
+                        }} 
+                      />
+                    )}
+                    <div style={{ 
+                      position: 'absolute', 
+                      top: 8, 
+                      right: 8, 
+                      background: mod.enabled ? 'rgba(82, 196, 26, 0.8)' : 'rgba(245, 34, 45, 0.8)', 
+                      color: 'white',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      display: 'flex',
+                      alignItems: 'center'
+                    }}>
+                      {mod.enabled ? 
+                        <><CheckCircleOutlined style={{ marginRight: 5 }} /> Enabled</> : 
+                        <><StopOutlined style={{ marginRight: 5 }} /> Disabled</>
+                      }
+                    </div>
                   </div>
-                ) : null}
+                )}
               >
                 <Meta 
-                  title={mod.name || 'Unnamed Mod'} 
+                  title={<span style={{ textTransform: 'capitalize' }}>{mod.name || 'Unnamed Mod'}</span>} 
                   description={
                     <>
                       {mod.description && <div>{mod.description}</div>}
                       {mod.author && <div>By: {mod.author}</div>}
                       {mod.version && <div>Version: {mod.version}</div>}
+                      {!mod.author && !mod.version && !mod.description && (
+                        <div>No additional information available</div>
+                      )}
                     </>
                   }
                 />
-                <div style={{ marginTop: 12 }}>
+                <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Tag color="blue">{mod.path.split('/').pop()}</Tag>
+                  <Tooltip title={`${mod.enabled ? 'Disable' : 'Enable'} this skin mod`}>
+                    <Switch
+                      checked={mod.enabled}
+                      loading={processingMod === mod.path}
+                      onChange={(checked) => toggleModEnabled(mod, checked)}
+                    />
+                  </Tooltip>
                 </div>
               </Card>
             </List.Item>

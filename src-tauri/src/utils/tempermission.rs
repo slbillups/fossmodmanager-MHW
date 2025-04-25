@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use tauri::{ipc::Channel, AppHandle, Manager};
+use std::path::{Path, PathBuf};
+use tauri::{ipc::Channel, AppHandle};
 // Event types for file operations
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "event", content = "data")]

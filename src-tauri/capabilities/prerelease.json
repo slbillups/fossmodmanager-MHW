@@ -1,15 +1,18 @@
 {
-    "$schema": "../gen/schemas/desktop-schema.json",
-    "identifier": "fossmodmanager-pre-release",
-    "description": "Capabilities for pre-release testing",
-    "windows": ["main", "setup"],
-    "permissions": [
-      "core:app:default",
-      "core:path:default",
-      "core:window:default",
-      "core:webview:deny-internal-toggle-devtools",
-      "core:event:default",
-      "os:default",
-      "http:default"
-    ]
-  }
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "fossmodmanager-pre-release",
+  "description": "Capabilities for pre-release testing",
+  "windows": [
+    "main",
+    "setup"
+  ],
+  "permissions": [
+    "core:app:default",
+    "core:path:default",
+    "core:window:default",
+    "core:webview:deny-internal-toggle-devtools",
+    "core:event:default",
+    "os:default",
+    "http:default"
+  ]
+}

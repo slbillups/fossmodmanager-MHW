@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
 use std::time::{Duration, Instant};
-use tokio::sync::Mutex;
 
 // --- Cache Structures ---
 
@@ -20,6 +19,13 @@ pub struct CacheEntry {
 pub struct ApiCache {
     // Store entries directly in a HashMap
     pub entries: HashMap<String, CacheEntry>,
+}
+
+// Add constructor implementation for ApiCache
+impl ApiCache {
+    pub fn new(_app_handle: tauri::AppHandle) -> std::sync::Arc<tokio::sync::Mutex<Self>> {
+        std::sync::Arc::new(tokio::sync::Mutex::new(Self::default()))
+    }
 }
 
 const CACHE_DURATION: Duration = Duration::from_secs(3600);
@@ -152,7 +158,9 @@ pub async fn fetch_trending_mods(
                 data: mods.clone(),
                 timestamp: Instant::now(),
             };
-            cache_map_lock.entries.insert(game_domain_name.clone(), new_entry);
+            cache_map_lock
+                .entries
+                .insert(game_domain_name.clone(), new_entry);
         }
 
         Ok(mods)

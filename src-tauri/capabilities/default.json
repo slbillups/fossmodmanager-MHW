@@ -52,15 +52,6 @@
         }
       ]
     },
-    {
-      "identifier": "shell:allow-execute",
-      "allow": [
-        {
-          "name": "extractgameassets.sh",
-          "sidecar": true
-        }
-      ]
-    },
     "shell:allow-open",
     "shell:default"
   ]

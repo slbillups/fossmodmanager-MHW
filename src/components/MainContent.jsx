@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useContext, lazy, Suspense } from 'react';
 import { Button, notification, Spin, Typography, List, Card, message, Layout } from 'antd';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke, Channel } from '@tauri-apps/api/core';
@@ -14,10 +14,12 @@ import {
   SearchOutlined
 } from '@ant-design/icons';
 import CustomInstallButton from './CustomInstallButton';
-import InstalledSkinMods from './SkinMods';
-import ExtractGameAssets from './ExtractGameAssets';
-import SettingsPage from './SettingsPage';
-import SearchPage from './SearchPage';
+
+// Lazy load components to improve initial load time
+const InstalledSkinMods = lazy(() => import('./SkinMods'));
+const ExtractGameAssets = lazy(() => import('./ExtractGameAssets'));
+const SettingsPage = lazy(() => import('./SettingsPage'));
+const SearchPage = lazy(() => import('./SearchPage'));
 
 const { Text } = Typography;
 
@@ -33,6 +35,8 @@ const MainContent = () => {
   const [currentTab, setCurrentTab] = useState('reframework');
   const [slideDirection, setSlideDirection] = useState(''); // 'left' or 'right'
   const [animating, setAnimating] = useState(false);
+  const [pageCache, setPageCache] = useState({});
+  const [assetsPreloaded, setAssetsPreloaded] = useState(false);
 
   const fetchMods = useCallback(async (gameRootPath) => {
     if (!gameRootPath) return;
@@ -43,6 +47,11 @@ const MainContent = () => {
       const mods = await invoke('list_mods', { gameRootPath });
       console.log("Loaded mods:", mods);
       setInstalledMods(mods || []);
+      
+      // Pre-load assets if not already done
+      if (!assetsPreloaded) {
+        preloadModAssets(mods);
+      }
     } catch (err) {
       console.error('Error loading mods list:', err);
       const errorMsg = typeof err === 'string' ? err : (err.message || 'Unknown error');
@@ -56,7 +65,25 @@ const MainContent = () => {
     } finally {
       setIsModsLoading(false);
     }
-  }, []);
+  }, [assetsPreloaded]);
+
+  // Function to preload mod assets using Tauri's cache
+  const preloadModAssets = async (mods) => {
+    try {
+      if (!mods || mods.length === 0) return;
+      
+      console.log("Preloading assets for mods...");
+      await invoke('preload_mod_assets', { 
+        mods: mods.map(mod => mod.directory_name) 
+      });
+      
+      setAssetsPreloaded(true);
+      console.log("Assets preloaded successfully");
+    } catch (err) {
+      console.error("Error preloading mod assets:", err);
+      // Non-critical error, don't block the UI
+    }
+  };
 
   useEffect(() => {
     if (gameConfig) {
@@ -194,7 +221,7 @@ const MainContent = () => {
     }
   };
 
-  // Updated tab switching with animation
+  // Updated tab switching with lazy loading
   const handleTabChange = (newTab) => {
     if (newTab === currentTab) return;
     
@@ -206,6 +233,12 @@ const MainContent = () => {
     setSlideDirection(direction);
     setAnimating(true);
     
+    // Pre-cache the page content before showing it
+    if (!pageCache[newTab]) {
+      // This will trigger the lazy loading
+      console.log(`Pre-caching ${newTab} tab content...`);
+    }
+    
     // Wait for animation before changing tab
     setTimeout(() => {
       setCurrentTab(newTab);
@@ -214,6 +247,219 @@ const MainContent = () => {
         setAnimating(false);
       }, 50);
     }, 300); // Match this with CSS transition duration
+  };
+
+  const renderTabContent = () => {
+    // Common loading spinner for lazy-loaded components
+    const loadingFallback = (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
+        <Spin size="large" tip="Loading..." />
+      </div>
+    );
+
+    // REFramework Mods Tab
+    if (currentTab === 'reframework' || (animating && (currentTab === 'skin' || slideDirection === 'right'))) {
+      return (
+        <div className={`tab-content ${animating && slideDirection === 'left' ? 'slide-left' : animating && slideDirection === 'right' ? 'tab-enter slide-right' : ''}`}>
+          {/* Add mod item animation styles */}
+          <style>
+            {`
+              .mod-item {
+                border: 1px solid transparent;
+                border-radius: 4px;
+                position: relative;
+                background: transparent;
+                transition: background 0.3s ease;
+              }
+              
+              .mod-item:hover {
+                background: transparent;
+              }
+              
+              .mod-item::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                border-radius: 4px;
+                padding: 1px;
+                background: linear-gradient(90deg, 
+                  transparent 0%, 
+                  transparent 50%, 
+                  #52c41a 50%, 
+                  #52c41a 60%, 
+                  transparent 60%, 
+                  transparent 100%
+                );
+                background-size: 200% 100%;
+                background-position: 100% 0;
+                transition: opacity 0.1s ease;
+                opacity: 0;
+                pointer-events: none;
+                z-index: 1;
+                mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+                mask-composite: exclude;
+                -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+                -webkit-mask-composite: xor;
+              }
+              
+              .mod-item:hover::before {
+                opacity: 1;
+                animation: modBorderTrail 2s linear infinite;
+                animation-delay: 0s;
+              }
+              
+              @keyframes modBorderTrail {
+                0% {
+                  background-position: 200% 0;
+                }
+                100% {
+                  background-position: 0% 0;
+                }
+              }
+              
+              .mod-status-indicator {
+                transition: background-color 0.3s ease;
+              }
+            `}
+          </style>
+          
+          {isModsLoading && !modsError && (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
+              <Spin tip="Loading Mods..."></Spin>
+            </div>
+          )}
+
+          {modsError && (
+            <div style={{ 
+              color: 'orange', 
+              marginBottom: '16px', 
+              padding: '15px', 
+              background: 'rgba(255, 165, 0, 0.05)',
+              border: '1px solid rgba(255, 165, 0, 0.2)', 
+              borderRadius: '4px', 
+              textAlign: 'center' 
+            }}>
+              <Text type="warning">Error loading mods: {modsError}</Text>
+              <Button size="small" onClick={() => fetchMods(gameConfig?.game_root_path)} style={{ marginLeft: '8px' }}>Retry</Button>
+            </div>
+          )}
+
+          {!isModsLoading && !modsError && (
+            <div style={{ padding: '8px' }}>
+              {installedMods.length === 0 ? (
+                <div style={{ color: '#888', textAlign: 'center', marginTop: '24px' }}>
+                  No mods installed yet. Use the "Install Mod from Zip" button to add some!
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
+                  {installedMods.map((mod) => (
+                    <div 
+                      key={mod.directory_name} 
+                      onClick={() => handleToggleMod(mod.directory_name, mod.enabled)}
+                      className="mod-item"
+                      style={{ 
+                        cursor: 'pointer',
+                        position: 'relative',
+                        padding: '12px',
+                        marginBottom: '6px',
+                        borderRadius: '4px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <div 
+                          className="mod-status-indicator" 
+                          style={{ 
+                            width: '10px', 
+                            height: '10px', 
+                            background: mod.enabled ? '#52c41a' : '#444',
+                            marginRight: '12px',
+                            borderRadius: '2px',
+                          }} 
+                        />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ 
+                            fontSize: '15px', 
+                            color: '#fff', 
+                            fontWeight: 400,
+                            marginBottom: '2px',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}>
+                            {mod.name || mod.directory_name}
+                          </div>
+                          <div style={{ 
+                            fontSize: '13px', 
+                            color: mod.enabled ? '#52c41a' : '#777',
+                            fontWeight: 300,
+                            letterSpacing: '0.03em'
+                          }}>
+                            {mod.enabled ? 'Enabled' : 'Disabled'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    } 
+    
+    // Skin Mods Tab
+    else if (currentTab === 'skin' || (animating && (currentTab === 'reframework' || slideDirection === 'left'))) {
+      return (
+        <div className={`tab-content ${animating && slideDirection === 'right' ? 'slide-right' : animating && slideDirection === 'left' ? 'tab-enter slide-left' : ''}`}>
+          <Suspense fallback={loadingFallback}>
+            <div style={{ marginBottom: '16px' }}>
+              <ExtractGameAssets gameRoot={gameConfig.game_root_path} />
+            </div>
+            <InstalledSkinMods gameRoot={gameConfig.game_root_path} />
+          </Suspense>
+        </div>
+      );
+    }
+    
+    // Search Tab - Fully lazy loaded
+    else if (currentTab === 'search') {
+      return (
+        <Suspense fallback={loadingFallback}>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            marginBottom: '16px'
+          }}>
+            <Text style={{ 
+              color: '#ddd', 
+              fontWeight: 500, 
+              fontSize: '16px',
+              letterSpacing: '0.5px'
+            }}>
+              Search Mods
+            </Text>
+          </div>
+          
+          <SearchPage />
+        </Suspense>
+      );
+    }
+    
+    // Settings Tab - Fully lazy loaded
+    else if (currentTab === 'settings') {
+      return (
+        <Suspense fallback={loadingFallback}>
+          <SettingsPage />
+        </Suspense>
+      );
+    }
+    
+    return null;
   };
 
   if (isConfigLoading) {
@@ -242,15 +488,23 @@ const MainContent = () => {
 
   if (!isConfigLoading && !configError && gameConfig) {
     return (
-      <Layout style={{ height: '100vh', display: 'flex', flexDirection: 'row', background: '#000', overflow: 'hidden' }}>
+      <Layout style={{ 
+        height: '100vh', 
+        display: 'flex', 
+        flexDirection: 'row', 
+        background: '#000', 
+        overflow: 'auto', 
+        msOverflowStyle: 'none',
+        scrollbarWidth: 'none'
+      }}>
         {/* Add global style to hide scrollbars */}
         <style>
           {`
-            /* Hide scrollbars but maintain scroll functionality if needed */
+            /* Hide scrollbars but maintain scroll functionality */
             body, #root, .ant-layout {
-              overflow: hidden !important;
               -ms-overflow-style: none;  /* IE and Edge */
               scrollbar-width: none;  /* Firefox */
+              overflow: auto !important; /* Allow scrolling */
             }
             
             /* Hide WebKit scrollbars */
@@ -260,21 +514,24 @@ const MainContent = () => {
               display: none;
             }
             
-            /* Ensure content div doesn't scroll either */
+            /* Ensure content div can scroll */
             div[style*="margin-top: 16px"] {
-              overflow: hidden !important;
+              overflow: auto !important;
+              max-height: calc(100vh - 100px); /* Adjust based on header/footer heights */
             }
             
             /* Tab transition animations */
             .tab-container {
               width: 100%;
               position: relative;
-              overflow: hidden;
+              overflow: visible; /* Changed from hidden to visible */
             }
             
             .tab-content {
               transition: transform 300ms ease;
               width: 100%;
+              overflow: auto; /* Allow content to scroll */
+              max-height: calc(100vh - 150px); /* Give space for header and buttons */
             }
             
             .slide-left {
@@ -330,7 +587,6 @@ const MainContent = () => {
         {/* Side Navigation */}
         <div className='side-bar' style={{ 
           width: '2.8rem',
-          // black to green gradient circle ON HOVE ONLY
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -434,7 +690,7 @@ const MainContent = () => {
           padding: '16px', 
           background: '#000', 
           position: 'relative',
-          overflow: 'hidden'
+          overflow: 'auto'
         }}>
           {/* Tab Content */}
           <div style={{ marginTop: '16px', overflow: 'hidden' }}>
@@ -470,196 +726,10 @@ const MainContent = () => {
               </Text>
             </div>
 
-            {/* Tab Container with Animation */}
+            {/* Tab Container with Animation and Lazy Loading */}
             <div className="tab-container">
-              {/* REFramework Mods Tab */}
-              {(currentTab === 'reframework' || animating) && (
-                <div className={`tab-content ${animating && slideDirection === 'left' ? 'slide-left' : animating && slideDirection === 'right' ? 'tab-enter slide-right' : ''}`}>
-                  {isModsLoading && !modsError && (
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
-                      <Spin tip="Loading Mods..."></Spin>
-                    </div>
-                  )}
-
-                  {modsError && (
-                    <div style={{ 
-                      color: 'orange', 
-                      marginBottom: '16px', 
-                      padding: '15px', 
-                      background: 'rgba(255, 165, 0, 0.05)',
-                      border: '1px solid rgba(255, 165, 0, 0.2)', 
-                      borderRadius: '4px', 
-                      textAlign: 'center' 
-                    }}>
-                      <Text type="warning">Error loading mods: {modsError}</Text>
-                      <Button size="small" onClick={fetchMods} style={{ marginLeft: '8px' }}>Retry</Button>
-                    </div>
-                  )}
-
-                  {/* Add a animation when hovering over a mod item */}
-                  <style>
-                    {`
-                      .mod-item {
-                        border: 1px solid transparent;
-                        border-radius: 4px;
-                        position: relative;
-                        background: transparent;
-                        transition: background 0.3s ease;
-                      }
-                      
-                      .mod-item:hover {
-                        background: transparent;
-                      }
-                      
-                      .mod-item::before {
-                        content: "";
-                        position: absolute;
-                        top: 0;
-                        left: 0;
-                        right: 0;
-                        bottom: 0;
-                        border-radius: 4px;
-                        padding: 1px;
-                        background: linear-gradient(90deg, 
-                          transparent 0%, 
-                          transparent 50%, 
-                          #52c41a 50%, 
-                          #52c41a 60%, 
-                          transparent 60%, 
-                          transparent 100%
-                        );
-                        background-size: 200% 100%;
-                        background-position: 100% 0;
-                        transition: opacity 0.1s ease;
-                        opacity: 0;
-                        pointer-events: none;
-                        z-index: 1;
-                        mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-                        mask-composite: exclude;
-                        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-                        -webkit-mask-composite: xor;
-                      }
-                      
-                      .mod-item:hover::before {
-                        opacity: 1;
-                        animation: modBorderTrail 2s linear infinite;
-                        animation-delay: 0s;
-                      }
-                      
-                      @keyframes modBorderTrail {
-                        0% {
-                          background-position: 200% 0;
-                        }
-                        100% {
-                          background-position: 0% 0;
-                        }
-                      }
-                      
-                      .mod-status-indicator {
-                        transition: background-color 0.3s ease;
-                      }
-                    `}
-                  </style>
-
-                  {!isModsLoading && !modsError && (
-                    <div style={{ padding: '8px' }}>
-                      {installedMods.length === 0 ? (
-                        <div style={{ color: '#888', textAlign: 'center', marginTop: '24px' }}>
-                          No mods installed yet. Use the "Install Mod from Zip" button to add some!
-                        </div>
-                      ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
-                          {installedMods.map((mod) => (
-                            <div 
-                              key={mod.directory_name} 
-                              onClick={() => handleToggleMod(mod.directory_name, mod.enabled)}
-                              className="mod-item"
-                              style={{ 
-                                cursor: 'pointer',
-                                position: 'relative',
-                                padding: '12px',
-                                marginBottom: '6px',
-                                borderRadius: '4px'
-                              }}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center' }}>
-                                <div 
-                                  className="mod-status-indicator" 
-                                  style={{ 
-                                    width: '10px', 
-                                    height: '10px', 
-                                    background: mod.enabled ? '#52c41a' : '#444',
-                                    marginRight: '12px',
-                                    borderRadius: '2px',
-                                  }} 
-                                />
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ 
-                                    fontSize: '15px', 
-                                    color: '#fff', 
-                                    fontWeight: 400,
-                                    marginBottom: '2px',
-                                    whiteSpace: 'nowrap',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis'
-                                  }}>
-                                    {mod.name || mod.directory_name}
-                                  </div>
-                                  <div style={{ 
-                                    fontSize: '13px', 
-                                    color: mod.enabled ? '#52c41a' : '#777',
-                                    fontWeight: 300,
-                                    letterSpacing: '0.03em'
-                                  }}>
-                                    {mod.enabled ? 'Enabled' : 'Disabled'}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Skin Mods Tab */}
-              {(currentTab === 'skin' || animating) && (
-                <div className={`tab-content ${animating && slideDirection === 'right' ? 'slide-right' : animating && slideDirection === 'left' ? 'tab-enter slide-left' : ''}`}>
-                  <div style={{ marginBottom: '16px' }}>
-                    <ExtractGameAssets gameRoot={gameConfig.game_root_path} />
-                  </div>
-                  <InstalledSkinMods gameRoot={gameConfig.game_root_path} />
-                </div>
-              )}
+              {renderTabContent()}
             </div>
-
-            {/* Search Tab */}
-            {currentTab === 'search' && (
-              <>
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  marginBottom: '16px'
-                }}>
-                  <Text style={{ 
-                    color: '#ddd', 
-                    fontWeight: 500, 
-                    fontSize: '16px',
-                    letterSpacing: '0.5px'
-                  }}>
-                    Search Mods
-                  </Text>
-                </div>
-                
-                <SearchPage />
-              </>
-            )}
-
-            {/* Settings Tab */}
-            {currentTab === 'settings' && <SettingsPage />}
           </div>
           
           {/* Place installercard at bottom right of screen */}
@@ -669,7 +739,7 @@ const MainContent = () => {
             </div>
           )}
           
-          {(currentTab === 'reframework' || currentTab === 'skin') && (
+          {(currentTab === 'reframework') && (
             <div style={{ position: 'absolute', bottom: '16px', left: '16px' }}>
               <CustomInstallButton 
                 onClick={handleInstallModFromZip}

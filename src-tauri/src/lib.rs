@@ -3,7 +3,7 @@ use std::fs;
 use std::io::{self};
 use std::path::PathBuf;
 use tauri::ipc::Channel;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use zip::ZipArchive;
 
 use tauri_plugin_opener::OpenerExt;
@@ -11,7 +11,6 @@ use tauri_plugin_opener::OpenerExt;
 mod nexus_api;
 use nexus_api::ApiCache;
 use reqwest;
-use tokio::sync::Mutex;
 use zip; // For async mutex if needed later
 
 mod utils;
@@ -20,7 +19,6 @@ use utils::config::{
     delete_config, load_game_config, save_game_config, validate_game_installation,
 };
 use utils::tempermission::with_game_dir_write_access;
-use utils::skinextract::{scan_for_skin_mods, install_skin_mod};
 
 // Struct representing mod metadata read from modinfo.json
 #[derive(Serialize, Deserialize, Debug, Clone)] // Added Clone
@@ -386,7 +384,7 @@ async fn check_reframework_installed(game_root_path: String) -> Result<bool, Str
 
 // Rename this command to match todo.md and its behaviour
 #[tauri::command]
-async fn ensure_reframework(app_handle: AppHandle, game_root_path: String) -> Result<(), String> {
+async fn ensure_reframework(_app_handle: AppHandle, game_root_path: String) -> Result<(), String> {
     // Use the Package abstraction
     let reframework_pkg = Package::reframework();
     // Pass app_handle if needed by ensure_installed later (currently not needed)
@@ -447,7 +445,7 @@ async fn open_mods_folder(app_handle: AppHandle, game_root_path: String) -> Resu
 }
 
 // --- Mod List Structs (Define BEFORE list_mods) ---
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct ModMetadata {
     parsed_name: String,
     original_zip_name: String,
@@ -457,7 +455,24 @@ struct ModMetadata {
     version: Option<String>,     // Optional: Maybe parsed from filename later
 }
 
-// Using a type alias for simplicity
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SkinMetadata {
+    name: String,
+    path: String,
+    enabled: bool,
+    thumbnail_path: Option<String>,
+    author: Option<String>,
+    version: Option<String>,
+    description: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct ModListContainer {
+    mods: Vec<ModMetadata>,
+    skins: Vec<SkinMetadata>,
+}
+
+// For legacy compatibility
 type ModList = Vec<ModMetadata>;
 
 // Command to list installed mods by reading modlist.json and checking file status
@@ -473,15 +488,27 @@ async fn list_mods(app_handle: AppHandle, game_root_path: String) -> Result<Vec<
     let modlist_path = get_app_config_path(&app_handle, "modlist.json")?;
     log::debug!("Reading mod list from: {:?}", modlist_path);
 
-    let mods_metadata: ModList = match fs::read_to_string(&modlist_path) {
+    let mods_metadata: Vec<ModMetadata> = match fs::read_to_string(&modlist_path) {
         Ok(content) => {
             if content.is_empty() {
                 log::info!("modlist.json is empty. No mods tracked.");
                 Vec::new()
             } else {
-                serde_json::from_str(&content).map_err(|e| {
-                    format!("Failed to parse modlist.json: {}. Content: {}", e, content)
-                })?
+                // First try to parse as ModListContainer
+                let result: Result<ModListContainer, _> = serde_json::from_str(&content);
+                match result {
+                    Ok(container) => {
+                        log::info!("Successfully parsed modlist.json as container with {} mods and {} skins", 
+                                  container.mods.len(), container.skins.len());
+                        container.mods
+                    },
+                    Err(_) => {
+                        // Fall back to legacy format
+                        serde_json::from_str(&content).map_err(|e| {
+                            format!("Failed to parse modlist.json: {}. Content: {}", e, content)
+                        })?
+                    }
+                }
             }
         }
         Err(e) if e.kind() == io::ErrorKind::NotFound => {
@@ -576,7 +603,7 @@ async fn install_mod_from_zip(
         &on_event,
         "install",
         &parsed_name,
-        |channel| {
+        |_channel| {
             // Open the zip
             let file =
                 fs::File::open(&zip_path).map_err(|e| format!("Failed to open zip: {}", e))?;
@@ -680,11 +707,30 @@ async fn install_mod_from_zip(
             let rel_path = format!("reframework/{}/{}", mod_type, parsed_name);
             let modlist_path = get_app_config_path(&app_handle, "modlist.json")?;
 
-            // Read existing or create new
-            let mut mods_list: ModList = match fs::read_to_string(&modlist_path) {
-                Ok(content) if !content.is_empty() => serde_json::from_str(&content)
-                    .map_err(|e| format!("Failed to parse modlist.json: {}", e))?,
-                _ => Vec::new(),
+            // Read existing or create new container
+            let mut mod_container = match fs::read_to_string(&modlist_path) {
+                Ok(content) if !content.is_empty() => {
+                    // Try to parse as container first
+                    let container_result: Result<ModListContainer, _> = serde_json::from_str(&content);
+                    match container_result {
+                        Ok(container) => container,
+                        Err(_) => {
+                            // Fall back to legacy format and migrate
+                            let legacy_mods: Result<ModList, _> = serde_json::from_str(&content);
+                            match legacy_mods {
+                                Ok(mods) => ModListContainer {
+                                    mods,
+                                    skins: Vec::new(),
+                                },
+                                Err(e) => return Err(format!("Failed to parse modlist.json: {}", e))
+                            }
+                        }
+                    }
+                },
+                _ => ModListContainer {
+                    mods: Vec::new(),
+                    skins: Vec::new(),
+                },
             };
 
             // Update list
@@ -696,11 +742,11 @@ async fn install_mod_from_zip(
                 version: None,
             };
 
-            mods_list.retain(|m| m.parsed_name != parsed_name);
-            mods_list.push(new_mod);
+            mod_container.mods.retain(|m| m.parsed_name != parsed_name);
+            mod_container.mods.push(new_mod);
 
             // Write back
-            let json = serde_json::to_string_pretty(&mods_list)
+            let json = serde_json::to_string_pretty(&mod_container)
                 .map_err(|e| format!("Failed to serialize modlist: {}", e))?;
             fs::write(&modlist_path, &json)
                 .map_err(|e| format!("Failed to write modlist.json: {}", e))?;
@@ -744,18 +790,15 @@ async fn toggle_mod_enabled_state(
     let modlist_path = get_app_config_path(&app_handle, "modlist.json")?;
     log::debug!("Reading mod list from: {:?}", modlist_path);
 
-    let mods_metadata: ModList = match fs::read_to_string(&modlist_path) {
+    let content = match fs::read_to_string(&modlist_path) {
         Ok(content) => {
             if content.is_empty() {
                 return Err(format!(
                     "Cannot toggle mod '{}': modlist.json is empty.",
                     mod_name
                 ));
-            } else {
-                serde_json::from_str(&content).map_err(|e| {
-                    format!("Failed to parse modlist.json: {}. Content: {}", e, content)
-                })?
             }
+            content
         }
         Err(e) if e.kind() == io::ErrorKind::NotFound => {
             return Err(format!(
@@ -766,11 +809,28 @@ async fn toggle_mod_enabled_state(
         Err(e) => return Err(format!("Failed to read modlist.json: {}", e)),
     };
 
-    // --- 2. Find the Mod Metadata ---
-    let mod_meta = mods_metadata
-        .iter()
-        .find(|m| m.parsed_name == mod_name)
-        .ok_or_else(|| format!("Mod '{}' not found in modlist.json", mod_name))?;
+    // Try to parse as container first
+    let container_result: Result<ModListContainer, _> = serde_json::from_str(&content);
+    let mod_meta = match container_result {
+        Ok(container) => {
+            // Clone the found mod to avoid borrowing issues
+            container.mods.iter()
+                .find(|m| m.parsed_name == mod_name)
+                .cloned()
+                .ok_or_else(|| format!("Mod '{}' not found in modlist.json", mod_name))?
+        },
+        Err(_) => {
+            // Fall back to legacy format
+            let mods_metadata: ModList = serde_json::from_str(&content)
+                .map_err(|e| format!("Failed to parse modlist.json: {}. Content: {}", e, content))?;
+            
+            // Clone the found mod to avoid borrowing issues
+            mods_metadata.iter()
+                .find(|m| m.parsed_name == mod_name)
+                .cloned()
+                .ok_or_else(|| format!("Mod '{}' not found in modlist.json", mod_name))?
+        }
+    };
 
     log::debug!(
         "Found metadata for mod '{}'. Installed directory: {}",
@@ -863,60 +923,100 @@ async fn toggle_mod_enabled_state(
     }
 }
 
+// --- New Command: Preload Mod Assets ---
+#[tauri::command]
+async fn preload_mod_assets(
+    app_handle: AppHandle,
+    mods: Vec<String>
+) -> Result<(), String> {
+    log::info!("Preloading assets for {} mods", mods.len());
+    
+    // Get the cache directory where we'll store mod assets
+    let cache_dir = app_handle
+        .path()
+        .app_cache_dir()
+        .map_err(|e| format!("Failed to get app cache dir: {}", e))?
+        .join("fossmodmanager")
+        .join("assets");
+    
+    // Ensure the cache directory exists
+    fs::create_dir_all(&cache_dir)
+        .map_err(|e| format!("Failed to create mod assets cache directory: {}", e))?;
+    
+    // For each mod, check if there are assets to preload
+    // This could include thumbnails, preview images, etc.
+    for mod_name in mods {
+        log::debug!("Preparing assets for mod: {}", mod_name);
+        
+        // Create a mod-specific cache directory
+        let mod_cache_dir = cache_dir.join(&mod_name);
+        if !mod_cache_dir.exists() {
+            fs::create_dir_all(&mod_cache_dir)
+                .map_err(|e| format!("Failed to create cache directory for mod {}: {}", mod_name, e))?;
+            log::debug!("Created cache directory for mod: {}", mod_name);
+        }
+        
+        // In the future, we could add code to preload specific assets:
+        // - Check if the mod has thumbnails/screenshots
+        // - Check for readme files or documentation
+        // - Process and optimize images
+        // - Extract essential metadata
+    }
+    
+    log::info!("Mod assets preloading completed successfully");
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Initialize devtools only in debug builds
-    // #[cfg(debug_assertions)] let devtools = tauri_plugin_devtools::init();
+    env_logger::init();
+    log::info!("Starting Foss Mod Manager");
 
-    // Initialize the cache
-    let api_cache = std::sync::Arc::new(tokio::sync::Mutex::new(ApiCache::default()));
-
-    // Start the builder
-    let mut builder =
-        tauri::Builder::default().plugin(tauri_plugin_log::Builder::default().build());
-
-    // // Add devtools plugin conditionally
-    // #[cfg(debug_assertions)]
-    // {
-    //     builder = builder.plugin(devtools);
-    // }
-
-    // Initialize essential plugins
-    builder = builder
-        .plugin(tauri_plugin_fs::init())
+    tauri::Builder::default()
+        .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+            println!("Another instance tried to start: {:?} in {:?}", argv, cwd);
+            app.emit_to("main", "single-instance", ()).unwrap();
+        }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_shell::init()); // Keep shell plugin for other potential uses (if any)
-
-    // Continue with the rest of the builder configuration
-    // --- Add Cache State ---
-    builder
-        .manage(api_cache) // Manage the ApiCache instance
         .invoke_handler(tauri::generate_handler![
-            validate_game_installation,
+            list_mods,
             save_game_config,
-            // Add the command from the nexus_api module
-            nexus_api::fetch_trending_mods,
-            // Added new commands
+            load_game_config,
+            validate_game_installation,
+            delete_config,
             check_reframework_installed,
             ensure_reframework,
-            // Command to load the single game config
-            load_game_config,
-            // Command to open the mods folder
-            open_mods_folder,
-            // Command to delete the user configuration file
-            delete_config,
-            // Command to list installed mods
-            list_mods,
-            // Command to install mod from zip
             install_mod_from_zip,
-            // Command to toggle mod enabled state
             toggle_mod_enabled_state,
+            open_mods_folder,
+            preload_mod_assets,
+            // Nexus API commands
+            nexus_api::fetch_trending_mods,
+            // Skin extraction utilities
             utils::skinextract::scan_for_skin_mods,
-            utils::skinextract::install_skin_mod,
-            utils::skinextract::extract_game_assets,
             utils::skinextract::read_mod_image,
+            utils::skinextract::cache_mod_image,
+            utils::skinextract::get_cached_mod_images,
+            utils::skinextract::enable_skin_mod,
+            utils::skinextract::disable_skin_mod,
+            utils::skinextract::list_installed_skin_mods,
         ])
+        .setup(|app| {
+            #[cfg(target_os = "windows")]
+            {
+                let window = app.get_window("main").expect("Main window not found");
+                window.set_decorations(false)?;
+            }
+
+            // Ensure API cache system is initialized
+            let cache = ApiCache::new(app.handle().clone());
+            app.manage(cache);
+
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

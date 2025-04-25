@@ -113,7 +113,35 @@ function SettingsPage() {
   }
 
   return (
-    <div style={{ maxWidth: '800px', margin: 'auto', padding: '24px' }}>
+    <div 
+      className="settings-container"
+      style={{ 
+        maxWidth: '800px', 
+        margin: 'auto', 
+        padding: '24px',
+        msOverflowStyle: 'none', /* IE and Edge */
+        scrollbarWidth: 'none',  /* Firefox */
+        overflow: 'auto'
+      }}>
+      <style>{`
+        /* Hide scrollbars for this specific component */
+        .settings-container::-webkit-scrollbar {
+          display: none;
+        }
+        
+        /* Hide scrollbars for cards */
+        .ant-card::-webkit-scrollbar,
+        .ant-card-body::-webkit-scrollbar {
+          display: none;
+        }
+        
+        /* Ensure the component can still scroll */
+        .settings-container {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+          overflow: auto;
+        }
+      `}</style>
       <Title level={3}><SettingOutlined /> Settings</Title>
 
       {gameConfig && (
