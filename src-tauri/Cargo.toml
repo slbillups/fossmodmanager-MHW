@@ -59,9 +59,15 @@ opt-level = "s"
 strip = true
 
 [features]
+# Features for the package
+testing = ["tauri/test"]  # Enable test feature in tauri when testing feature is enabled
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"
+
+[dev-dependencies]
+tempfile = "3.19.1"
+tokio = { version = "1.44.2", features = ["macros", "rt-multi-thread"] }
 
 [package.metadata.bundle]
 formats = ["deb", "rpm"]

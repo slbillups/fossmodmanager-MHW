@@ -19,8 +19,8 @@ use utils::config::{
     delete_config, load_game_config, save_game_config, validate_game_installation,
 };
 use utils::tempermission::with_game_dir_write_access;
-use utils::modregistry::{Mod, ModRegistry, ModType, SkinMod, ModFile, ModFileType, ModInfo};
-
+use utils::modregistry::{Mod, ModRegistry, ModType, SkinMod, ModFile, ModFileType, ModInfo, toggle_mod_enabled_state};
+use utils::cachethumbs::{read_mod_image, cache_mod_image, get_cached_mod_images};
 // Removed Nexus struct definitions - they are now in nexus_api/mod.rs
 
 // --- Structs for GitHub API Response ---
@@ -457,23 +457,23 @@ struct ModListContainer {
 // For legacy compatibility
 // type ModList = Vec<ModMetadata>;
 
-//replacement for list_mods
-#[tauri::command]
-async fn list_mods(app_handle: AppHandle, game_root_path: String) -> Result<Vec<ModInfo>, String> {
-    log::info!("Listing mods based on registry for game root: {}", game_root_path);
-
-    let mut registry = ModRegistry::load(&app_handle)?;
-
-    //update registry based on fs
-    let game_root = PathBuf::from(&game_root_path);
-    registry.update_mod_enabled_status(&game_root)?;
-
-    //get all mod info
-    let mods_info = registry.get_reframework_mod_info();
-
-    log::info!("Finished processing mod list. Returning {} mods to frontend.", mods_info.len());
-    Ok(mods_info)
-}
+// This function is replaced by utils::modregistry::list_mods
+// #[tauri::command]
+// async fn list_mods(app_handle: AppHandle, game_root_path: String) -> Result<Vec<utils::modregistry::ModInfo>, String> {
+//     log::info!("Listing mods based on registry for game root: {}", game_root_path);
+// 
+//     let mut registry = utils::modregistry::ModRegistry::load(&app_handle)?;
+// 
+//     //update registry based on fs
+//     let game_root = PathBuf::from(&game_root_path);
+//     registry.update_mod_enabled_status(&game_root)?;
+// 
+//     //get all mod info
+//     let mods_info = registry.get_reframework_mod_info();
+// 
+//     log::info!("Finished processing mod list. Returning {} mods to frontend.", mods_info.len());
+//     Ok(mods_info)
+// }
 
 #[tauri::command]
 async fn install_mod_from_zip(
@@ -531,9 +531,9 @@ async fn install_mod_from_zip(
             };
             
             let mod_type_enum = if is_autorun {
-                ModType::REFrameworkAutorun
+                utils::modregistry::ModType::REFrameworkAutorun
             } else {
-                ModType::REFrameworkPlugin
+                utils::modregistry::ModType::REFrameworkPlugin
             };
             
             let rf_path = game_root.join("reframework");
@@ -661,114 +661,6 @@ fn get_app_config_path(app_handle: &AppHandle, filename: &str) -> Result<PathBuf
         .map_err(|e| format!("Failed to create config directory {:?}: {}", config_dir, e))?;
     Ok(config_dir.join(filename))
 }
-#[tauri::command]
-async fn toggle_mod_enabled_state(
-    app_handle: AppHandle,
-    game_root_path: String,
-    mod_name: String,
-    enable: bool,
-) -> Result<(), String> {
-    log::info!(
-        "Toggling mod '{}' to enabled={} in game root: {}",
-        mod_name,
-        enable,
-        game_root_path
-    );
-    let game_root = PathBuf::from(&game_root_path);
-    
-    // Load the registry instead of modlist.json
-    let mut registry = utils::modregistry::ModRegistry::load(&app_handle)?;
-    
-    // Find the mod
-    let mod_entry = match registry.find_mod(&mod_name) {
-        Some(m) => m.clone(), // Clone to avoid borrow issues
-        None => {
-            // Try to find it as a skin mod
-            if let Some(_) = registry.find_skin_mod(&mod_name) {
-                return Err(format!(
-                    "Mod '{}' is a skin mod. Please use toggle_skin_mod_enabled instead.",
-                    mod_name
-                ));
-            }
-            
-            return Err(format!("Mod '{}' not found in registry", mod_name));
-        }
-    };
-    
-    // Get paths for filesystem operations
-    let installed_dir_rel = PathBuf::from(&mod_entry.installed_directory);
-    let installed_dir_abs = game_root.join(&installed_dir_rel);
-    let disabled_dir_str = format!("{}.disabled", mod_entry.installed_directory);
-    let disabled_dir_abs = game_root.join(PathBuf::from(&disabled_dir_str));
-    
-    if enable {
-        // Enable: Rename *.disabled to * (if it exists)
-        if disabled_dir_abs.exists() {
-            log::info!(
-                "Enabling mod '{}': Renaming {:?} -> {:?}",
-                mod_name,
-                disabled_dir_abs,
-                installed_dir_abs
-            );
-            fs::rename(&disabled_dir_abs, &installed_dir_abs)
-                .map_err(|e| {
-                    format!(
-                        "Failed to rename {:?} to {:?}: {}",
-                        disabled_dir_abs, installed_dir_abs, e
-                    )
-                })?;
-        } else if installed_dir_abs.exists() {
-            log::info!(
-                "Mod '{}' is already enabled (directory {:?} exists).",
-                mod_name,
-                installed_dir_abs
-            );
-            // Already in desired state
-        } else {
-            return Err(format!(
-                "Cannot enable mod '{}': Neither directory {:?} nor {:?} found.",
-                mod_name, installed_dir_abs, disabled_dir_abs
-            ));
-        }
-    } else {
-        // Disable: Rename * to *.disabled (if it exists)
-        if installed_dir_abs.exists() {
-            log::info!(
-                "Disabling mod '{}': Renaming {:?} -> {:?}",
-                mod_name,
-                installed_dir_abs,
-                disabled_dir_abs
-            );
-            fs::rename(&installed_dir_abs, &disabled_dir_abs)
-                .map_err(|e| {
-                    format!(
-                        "Failed to rename {:?} to {:?}: {}",
-                        installed_dir_abs, disabled_dir_abs, e
-                    )
-                })?;
-        } else if disabled_dir_abs.exists() {
-            log::info!(
-                "Mod '{}' is already disabled (directory {:?} exists).",
-                mod_name,
-                disabled_dir_abs
-            );
-            // Already in desired state
-        } else {
-            return Err(format!(
-                "Cannot disable mod '{}': Neither directory {:?} nor {:?} found.",
-                mod_name, installed_dir_abs, disabled_dir_abs
-            ));
-        }
-    }
-    
-    // Update registry and save
-    registry.toggle_mod_enabled(&mod_name, enable)?;
-    registry.save(&app_handle)?;
-    
-    log::info!("Successfully toggled mod '{}' to enabled={}", mod_name, enable);
-    Ok(())
-}
-
 
 // --- New Command: Preload Mod Assets ---
 #[tauri::command]
@@ -816,7 +708,29 @@ async fn preload_mod_assets(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    env_logger::init();
+    // env_logger::init();
+    // log::info!("Starting Foss Mod Manager");
+    let env = env_logger::Env::default()
+    .filter_or("RUST_LOG", "info"); // Default to info level
+
+    env_logger::Builder::from_env(env)
+        .format(|buf, record| {
+            use std::io::Write;
+            use chrono::Local;
+            
+            let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+            writeln!(
+                buf,
+                "[{} {} {}:{}] {}",
+                timestamp,
+                record.level(),
+                record.file().unwrap_or("unknown"),
+                record.line().unwrap_or(0),
+                record.args()
+            )
+        })
+        .init();
+
     log::info!("Starting Foss Mod Manager");
 
     tauri::Builder::default()
@@ -829,7 +743,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
-            list_mods,
+            // Standard commands
             save_game_config,
             load_game_config,
             validate_game_installation,
@@ -837,27 +751,28 @@ pub fn run() {
             check_reframework_installed,
             ensure_reframework,
             install_mod_from_zip,
-            toggle_mod_enabled_state,
             open_mods_folder,
             preload_mod_assets,
+            
             // Nexus API commands
             nexus_api::fetch_trending_mods,
-            // Skin extraction utilities
-            utils::skinextract::scan_for_skin_mods,
-            utils::skinextract::read_mod_image,
-            utils::skinextract::cache_mod_image,
-            utils::skinextract::get_cached_mod_images,
-            utils::skinextract::enable_skin_mod,
-            utils::skinextract::disable_skin_mod,
-            utils::skinextract::list_installed_skin_mods,
             
+            // Mod registry commands 
+            utils::modregistry::toggle_mod_enabled_state,
+            utils::modregistry::list_mods,
+            
+            // Cache thumbs commands
+            utils::cachethumbs::read_mod_image,
+            utils::cachethumbs::cache_mod_image,
+            utils::cachethumbs::get_cached_mod_images,
+            
+            // Skin management commands
+            utils::skinmanager::scan_for_skin_mods,
+            utils::skinmanager::enable_skin_mod,
+            utils::skinmanager::disable_skin_mod,
+            utils::skinmanager::list_installed_skin_mods,
         ])
         .setup(|app| {
-            #[cfg(target_os = "windows")]
-            {
-                let window = app.get_window("main").expect("Main window not found");
-                window.set_decorations(false)?;
-            }
 
             // Ensure API cache system is initialized
             let cache = ApiCache::new(app.handle().clone());

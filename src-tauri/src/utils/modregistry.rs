@@ -496,6 +496,115 @@ impl ModRegistry {
 
 // Utility functions
 
+/// Toggle a mod's enabled state through the registry and on filesystem
+#[tauri::command]
+pub async fn toggle_mod_enabled_state(
+    app_handle: AppHandle,
+    game_root_path: String,
+    mod_name: String,
+    enable: bool,
+) -> Result<(), String> {
+    log::info!(
+        "Toggling mod '{}' to enabled={} in game root: {}",
+        mod_name,
+        enable,
+        game_root_path
+    );
+    let game_root = PathBuf::from(&game_root_path);
+    
+    // Load the registry
+    let mut registry = ModRegistry::load(&app_handle)?;
+    
+    // Find the mod
+    let mod_entry = match registry.find_mod(&mod_name) {
+        Some(m) => m.clone(), // Clone to avoid borrow issues
+        None => {
+            // Try to find it as a skin mod
+            if let Some(_) = registry.find_skin_mod(&mod_name) {
+                return Err(format!(
+                    "Mod '{}' is a skin mod. Please use toggle_skin_mod_enabled instead.",
+                    mod_name
+                ));
+            }
+            
+            return Err(format!("Mod '{}' not found in registry", mod_name));
+        }
+    };
+    
+    // Get paths for filesystem operations
+    let installed_dir_rel = PathBuf::from(&mod_entry.installed_directory);
+    let installed_dir_abs = game_root.join(&installed_dir_rel);
+    let disabled_dir_str = format!("{}.disabled", mod_entry.installed_directory);
+    let disabled_dir_abs = game_root.join(PathBuf::from(&disabled_dir_str));
+    
+    if enable {
+        // Enable: Rename *.disabled to * (if it exists)
+        if disabled_dir_abs.exists() {
+            log::info!(
+                "Enabling mod '{}': Renaming {:?} -> {:?}",
+                mod_name,
+                disabled_dir_abs,
+                installed_dir_abs
+            );
+            fs::rename(&disabled_dir_abs, &installed_dir_abs)
+                .map_err(|e| {
+                    format!(
+                        "Failed to rename {:?} to {:?}: {}",
+                        disabled_dir_abs, installed_dir_abs, e
+                    )
+                })?;
+        } else if installed_dir_abs.exists() {
+            log::info!(
+                "Mod '{}' is already enabled (directory {:?} exists).",
+                mod_name,
+                installed_dir_abs
+            );
+            // Already in desired state
+        } else {
+            return Err(format!(
+                "Cannot enable mod '{}': Neither directory {:?} nor {:?} found.",
+                mod_name, installed_dir_abs, disabled_dir_abs
+            ));
+        }
+    } else {
+        // Disable: Rename * to *.disabled (if it exists)
+        if installed_dir_abs.exists() {
+            log::info!(
+                "Disabling mod '{}': Renaming {:?} -> {:?}",
+                mod_name,
+                installed_dir_abs,
+                disabled_dir_abs
+            );
+            fs::rename(&installed_dir_abs, &disabled_dir_abs)
+                .map_err(|e| {
+                    format!(
+                        "Failed to rename {:?} to {:?}: {}",
+                        installed_dir_abs, disabled_dir_abs, e
+                    )
+                })?;
+        } else if disabled_dir_abs.exists() {
+            log::info!(
+                "Mod '{}' is already disabled (directory {:?} exists).",
+                mod_name,
+                disabled_dir_abs
+            );
+            // Already in desired state
+        } else {
+            return Err(format!(
+                "Cannot disable mod '{}': Neither directory {:?} nor {:?} found.",
+                mod_name, installed_dir_abs, disabled_dir_abs
+            ));
+        }
+    }
+    
+    // Update registry and save
+    registry.toggle_mod_enabled(&mod_name, enable)?;
+    registry.save(&app_handle)?;
+    
+    log::info!("Successfully toggled mod '{}' to enabled={}", mod_name, enable);
+    Ok(())
+}
+
 /// Extract a cleaner mod name from folder name
 pub fn extract_mod_name_from_folder(folder_name: &str) -> String {
     // Common delimiters used in mod folder names
@@ -525,4 +634,22 @@ pub fn extract_mod_name_from_folder(folder_name: &str) -> String {
     }
 
     folder_name.to_string()
+}
+
+/// List all REFramework mods from the registry
+#[tauri::command]
+pub async fn list_mods(app_handle: AppHandle, game_root_path: String) -> Result<Vec<ModInfo>, String> {
+    log::info!("Listing mods based on registry for game root: {}", game_root_path);
+
+    let mut registry = ModRegistry::load(&app_handle)?;
+
+    //update registry based on fs
+    let game_root = PathBuf::from(&game_root_path);
+    registry.update_mod_enabled_status(&game_root)?;
+
+    //get all mod info
+    let mods_info = registry.get_reframework_mod_info();
+
+    log::info!("Finished processing mod list. Returning {} mods to frontend.", mods_info.len());
+    Ok(mods_info)
 }

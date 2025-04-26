@@ -1,8 +1,5 @@
 pub mod config;
-pub mod skinextract;
+pub mod skinmanager;
 pub mod tempermission;
 pub mod modregistry;
-// If you move other helpers here later:
-// pub mod mod_installer;
-// pub mod mod_toggle;
-// pub mod nexus_api_wrapper; // etc
+pub mod cachethumbs;
