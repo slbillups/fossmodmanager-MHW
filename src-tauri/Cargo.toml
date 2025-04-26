@@ -18,19 +18,19 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.0.0-rec.13", features = [] }
 
 [dependencies]
-tauri = { version = "2.5.0", features = ["protocol-asset"] }
-tauri-plugin-opener = "2.2.1"
+tauri = { version = "2.5.1", features = ["protocol-asset"] }
+tauri-plugin-opener = "2.2.6"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde_json = "1.0.140"
 tauri-plugin-fs = "2.2.1"
 tauri-plugin-store = "2.2.0"
-tauri-plugin-http = "2.2.1"
+tauri-plugin-http = "2.4.3"
 anyhow = "1.0.98"
 tauri-plugin-dialog = "2.2.1"
 tauri-plugin-os = "2.2.1"
 base64 = "0.22.1"
 reqwest = { version = "0.12.15", features = ["json"] }
-tauri-plugin-shell = "2"
+tauri-plugin-shell = "2.2.1"
 dotenvy = "0.15.7"
 tokio = "1.44.2"
 futures-util = "0.3.31"
@@ -59,7 +59,7 @@ testing = ["tauri/test"]  # Enable test feature in tauri when testing feature is
 
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-tauri-plugin-single-instance = "2"
+tauri-plugin-single-instance = "2.2.3"
 
 [dev-dependencies]
 tempfile = "3.19.1"
@@ -69,6 +69,3 @@ tauri-plugin-devtools = "2.0.0"
 
 [package.metadata.bundle]
 formats = ["deb", "rpm"]
-
-// [debug_assertations]
-// tauri-plugin-devtools = "2.0.0"
