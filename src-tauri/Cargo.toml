@@ -26,16 +26,11 @@ tauri-plugin-fs = "2.2.1"
 tauri-plugin-store = "2.2.0"
 tauri-plugin-http = "2.2.1"
 anyhow = "1.0.98"
-dialoguer = "0.11.0"
-steamlocate = "2.0.1"
 tauri-plugin-dialog = "2.2.1"
 tauri-plugin-os = "2.2.1"
-shellexpand = "3.1.1"
-vdf-reader = "0.3.0"
 base64 = "0.22.1"
 reqwest = { version = "0.12.15", features = ["json"] }
 tauri-plugin-shell = "2"
-tauri-plugin-devtools = "2.0.0"
 dotenvy = "0.15.7"
 tokio = "1.44.2"
 futures-util = "0.3.31"
@@ -62,12 +57,18 @@ strip = true
 # Features for the package
 testing = ["tauri/test"]  # Enable test feature in tauri when testing feature is enabled
 
+
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"
 
 [dev-dependencies]
 tempfile = "3.19.1"
 tokio = { version = "1.44.2", features = ["macros", "rt-multi-thread"] }
+tauri-plugin-devtools = "2.0.0"
+
 
 [package.metadata.bundle]
 formats = ["deb", "rpm"]
+
+// [debug_assertations]
+// tauri-plugin-devtools = "2.0.0"

@@ -1,5 +1,4 @@
 use dotenvy::dotenv;
-use reqwest;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, ACCEPT, USER_AGENT};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

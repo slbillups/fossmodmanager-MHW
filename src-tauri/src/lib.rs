@@ -10,8 +10,7 @@ use tauri_plugin_opener::OpenerExt;
 // Declare the new module
 mod nexus_api;
 use nexus_api::ApiCache;
-use reqwest;
-use zip; // For async mutex if needed later
+// For async mutex if needed later
 
 mod utils;
 use crate::utils::tempermission::ModOperationEvent;
@@ -19,8 +18,6 @@ use utils::config::{
     delete_config, load_game_config, save_game_config, validate_game_installation,
 };
 use utils::tempermission::with_game_dir_write_access;
-use utils::modregistry::{Mod, ModRegistry, ModType, SkinMod, ModFile, ModFileType, ModInfo, toggle_mod_enabled_state};
-use utils::cachethumbs::{read_mod_image, cache_mod_image, get_cached_mod_images};
 // Removed Nexus struct definitions - they are now in nexus_api/mod.rs
 
 // --- Structs for GitHub API Response ---
@@ -303,7 +300,7 @@ fn extract_reframework_files(
             // Ensure parent directory exists
             if let Some(p) = outpath.parent() {
                 if !p.exists() {
-                    fs::create_dir_all(&p).map_err(|e| {
+                    fs::create_dir_all(p).map_err(|e| {
                         format!("Failed to create parent directory {}: {}", p.display(), e)
                     })?;
                 }
@@ -461,16 +458,16 @@ struct ModListContainer {
 // #[tauri::command]
 // async fn list_mods(app_handle: AppHandle, game_root_path: String) -> Result<Vec<utils::modregistry::ModInfo>, String> {
 //     log::info!("Listing mods based on registry for game root: {}", game_root_path);
-// 
+//
 //     let mut registry = utils::modregistry::ModRegistry::load(&app_handle)?;
-// 
+//
 //     //update registry based on fs
 //     let game_root = PathBuf::from(&game_root_path);
 //     registry.update_mod_enabled_status(&game_root)?;
-// 
+//
 //     //get all mod info
 //     let mods_info = registry.get_reframework_mod_info();
-// 
+//
 //     log::info!("Finished processing mod list. Returning {} mods to frontend.", mods_info.len());
 //     Ok(mods_info)
 // }
@@ -524,18 +521,14 @@ async fn install_mod_from_zip(
             }
 
             // Create the mod directory
-            let mod_type = if is_autorun { 
-                "autorun" 
-            } else { 
-                "plugins" 
-            };
-            
+            let mod_type = if is_autorun { "autorun" } else { "plugins" };
+
             let mod_type_enum = if is_autorun {
                 utils::modregistry::ModType::REFrameworkAutorun
             } else {
                 utils::modregistry::ModType::REFrameworkPlugin
             };
-            
+
             let rf_path = game_root.join("reframework");
             let mod_dir = rf_path.join(mod_type).join(&parsed_name);
 
@@ -618,10 +611,10 @@ async fn install_mod_from_zip(
 
             // This part changes to use ModRegistry
             let rel_path = format!("reframework/{}/{}", mod_type, parsed_name);
-            
+
             // Load registry instead of modlist.json
             let mut registry = utils::modregistry::ModRegistry::load(&app_handle)?;
-            
+
             // Create new mod entry
             let new_mod = utils::modregistry::Mod {
                 name: parsed_name.clone(),
@@ -636,18 +629,20 @@ async fn install_mod_from_zip(
                 installed_directory: rel_path,
                 mod_type: mod_type_enum,
             };
-            
+
             // Add to registry and save
             registry.add_mod(new_mod);
             registry.save(&app_handle)?;
-            
-            log::info!("Successfully installed mod '{}' and updated registry", parsed_name);
+
+            log::info!(
+                "Successfully installed mod '{}' and updated registry",
+                parsed_name
+            );
             Ok(())
         },
     )
     .await
 }
-
 
 // --- Helper Function ---
 // Function to get the full path to a file within the app's config directory
@@ -664,12 +659,9 @@ fn get_app_config_path(app_handle: &AppHandle, filename: &str) -> Result<PathBuf
 
 // --- New Command: Preload Mod Assets ---
 #[tauri::command]
-async fn preload_mod_assets(
-    app_handle: AppHandle,
-    mods: Vec<String>
-) -> Result<(), String> {
+async fn preload_mod_assets(app_handle: AppHandle, mods: Vec<String>) -> Result<(), String> {
     log::info!("Preloading assets for {} mods", mods.len());
-    
+
     // Get the cache directory where we'll store mod assets
     let cache_dir = app_handle
         .path()
@@ -677,31 +669,35 @@ async fn preload_mod_assets(
         .map_err(|e| format!("Failed to get app cache dir: {}", e))?
         .join("fossmodmanager")
         .join("assets");
-    
+
     // Ensure the cache directory exists
     fs::create_dir_all(&cache_dir)
         .map_err(|e| format!("Failed to create mod assets cache directory: {}", e))?;
-    
+
     // For each mod, check if there are assets to preload
     // This could include thumbnails, preview images, etc.
     for mod_name in mods {
         log::debug!("Preparing assets for mod: {}", mod_name);
-        
+
         // Create a mod-specific cache directory
         let mod_cache_dir = cache_dir.join(&mod_name);
         if !mod_cache_dir.exists() {
-            fs::create_dir_all(&mod_cache_dir)
-                .map_err(|e| format!("Failed to create cache directory for mod {}: {}", mod_name, e))?;
+            fs::create_dir_all(&mod_cache_dir).map_err(|e| {
+                format!(
+                    "Failed to create cache directory for mod {}: {}",
+                    mod_name, e
+                )
+            })?;
             log::debug!("Created cache directory for mod: {}", mod_name);
         }
-        
+
         // In the future, we could add code to preload specific assets:
         // - Check if the mod has thumbnails/screenshots
         // - Check for readme files or documentation
         // - Process and optimize images
         // - Extract essential metadata
     }
-    
+
     log::info!("Mod assets preloading completed successfully");
     Ok(())
 }
@@ -710,14 +706,13 @@ async fn preload_mod_assets(
 pub fn run() {
     // env_logger::init();
     // log::info!("Starting Foss Mod Manager");
-    let env = env_logger::Env::default()
-    .filter_or("RUST_LOG", "info"); // Default to info level
+    let env = env_logger::Env::default().filter_or("RUST_LOG", "info"); // Default to info level
 
     env_logger::Builder::from_env(env)
         .format(|buf, record| {
-            use std::io::Write;
             use chrono::Local;
-            
+            use std::io::Write;
+
             let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
             writeln!(
                 buf,
@@ -753,19 +748,15 @@ pub fn run() {
             install_mod_from_zip,
             open_mods_folder,
             preload_mod_assets,
-            
             // Nexus API commands
             nexus_api::fetch_trending_mods,
-            
-            // Mod registry commands 
+            // Mod registry commands
             utils::modregistry::toggle_mod_enabled_state,
             utils::modregistry::list_mods,
-            
             // Cache thumbs commands
             utils::cachethumbs::read_mod_image,
             utils::cachethumbs::cache_mod_image,
             utils::cachethumbs::get_cached_mod_images,
-            
             // Skin management commands
             utils::skinmanager::scan_for_skin_mods,
             utils::skinmanager::enable_skin_mod,
@@ -773,7 +764,6 @@ pub fn run() {
             utils::skinmanager::list_installed_skin_mods,
         ])
         .setup(|app| {
-
             // Ensure API cache system is initialized
             let cache = ApiCache::new(app.handle().clone());
             app.manage(cache);

@@ -9,8 +9,8 @@ use tauri::{AppHandle, Manager};
 // Image cache entry metadata
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CacheEntry {
-    pub original_path: String,        // Original image path
-    pub timestamp: i64,               // When cached (unix timestamp)
+    pub original_path: String, // Original image path
+    pub timestamp: i64,        // When cached (unix timestamp)
 }
 
 /// Get the image cache directory path
@@ -56,7 +56,11 @@ pub fn read_mod_image(image_path: String) -> Result<String, String> {
     // Convert to base64
     let base64_encoded = general_purpose::STANDARD.encode(&img_data);
 
-    info!("Successfully read image: {} ({} bytes)", image_path, img_data.len());
+    info!(
+        "Successfully read image: {} ({} bytes)",
+        image_path,
+        img_data.len()
+    );
     Ok(base64_encoded)
 }
 
@@ -127,7 +131,10 @@ pub async fn get_cached_mod_images(
                         Ok(cache_info) => {
                             // Verify it's for the right path (in case of hash collision)
                             if cache_info.original_path != path {
-                                warn!("Cache key collision: {} vs {}", cache_info.original_path, path);
+                                warn!(
+                                    "Cache key collision: {} vs {}",
+                                    cache_info.original_path, path
+                                );
                                 continue;
                             }
 
@@ -167,6 +174,10 @@ pub async fn get_cached_mod_images(
         }
     }
 
-    info!("Retrieved {} cached images out of {} requested", result.len(), image_paths_count);
+    info!(
+        "Retrieved {} cached images out of {} requested",
+        result.len(),
+        image_paths_count
+    );
     Ok(result)
 }

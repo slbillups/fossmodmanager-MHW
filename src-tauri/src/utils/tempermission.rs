@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use tauri::{ipc::Channel, AppHandle};
 // Event types for file operations
 #[derive(Clone, Serialize, Deserialize)]

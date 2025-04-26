@@ -35,3 +35,4 @@ default.json.back
 *.code-workspace
 *.acf
 *.ttf
+*.sh
