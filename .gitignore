@@ -36,3 +36,5 @@ default.json.back
 *.acf
 *.ttf
 *.sh
+*.env
+.env
