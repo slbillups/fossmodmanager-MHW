@@ -15,7 +15,7 @@ name = "fossmodmanager_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2.0.0-rec.13", features = [] }
+tauri-build = { version = "2.2.0", features = [] }
 
 [dependencies]
 tauri = { version = "2.5.1", features = ["protocol-asset"] }
@@ -65,7 +65,3 @@ tauri-plugin-single-instance = "2.2.3"
 tempfile = "3.19.1"
 tokio = { version = "1.44.2", features = ["macros", "rt-multi-thread"] }
 tauri-plugin-devtools = "2.0.0"
-
-
-[package.metadata.bundle]
-formats = ["deb", "rpm"]

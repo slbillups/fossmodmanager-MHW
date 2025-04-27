@@ -3,7 +3,7 @@ use std::fs;
 use std::io::{self};
 use std::path::PathBuf;
 use tauri::ipc::Channel;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager, WindowEvent, State};
 use zip::ZipArchive;
 
 use tauri_plugin_opener::OpenerExt;
@@ -483,7 +483,7 @@ async fn install_mod_from_zip(
     let zip_path = PathBuf::from(&zip_path_str);
 
     // Get mod name from zip filename
-    let original_zip_name = zip_path
+    let _original_zip_name = zip_path
         .file_name()
         .and_then(|n| n.to_str())
         .ok_or_else(|| "Invalid zip filename".to_string())?
@@ -702,6 +702,20 @@ async fn preload_mod_assets(app_handle: AppHandle, mods: Vec<String>) -> Result<
     Ok(())
 }
 
+// --- Structs ---
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct StartupState {
+    needs_setup: bool,
+    // We could add error messages here later if needed
+}
+
+// Add the new command function definition
+#[tauri::command]
+async fn get_startup_state(state: State<'_, StartupState>) -> Result<StartupState, String> {
+    // Clone the state to return it
+    Ok(state.inner().clone())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // env_logger::init();
@@ -748,6 +762,8 @@ pub fn run() {
             install_mod_from_zip,
             open_mods_folder,
             preload_mod_assets,
+            // Add the new command to the handler list
+            get_startup_state,
             // Nexus API commands
             nexus_api::fetch_trending_mods,
             // Mod registry commands
@@ -764,9 +780,88 @@ pub fn run() {
             utils::skinmanager::list_installed_skin_mods,
         ])
         .setup(|app| {
-            // Ensure API cache system is initialized
-            let cache = ApiCache::new(app.handle().clone());
+            log::info!("Executing Tauri setup closure...");
+            let app_handle = app.handle().clone(); // Clone handle for use
+
+            // --- Startup Validation --- 
+            let mut needs_setup = false;
+            let mut validation_error: Option<String> = None;
+
+            // 1. Check user config
+            match tauri::async_runtime::block_on(utils::config::load_game_config(app_handle.clone())) {
+                Ok(Some(config_data)) => {
+                    log::info!("User config found: {:?}", config_data);
+                    // Optional: Add further validation for config_data if needed (e.g., check path existence)
+                    // let game_root = PathBuf::from(config_data.game_root_path);
+                    // if !game_root.exists() { ... set needs_setup = true ... }
+                }
+                Ok(None) => {
+                    log::info!("User config not found. Setup required.");
+                    needs_setup = true;
+                }
+                Err(e) => {
+                    log::error!("Error loading user config: {}. Setup required.", e);
+                    needs_setup = true;
+                    validation_error = Some(format!("User config error: {}", e));
+                }
+            }
+
+            // 2. Validate mod registry (only if setup not already needed)
+            if !needs_setup {
+                 match utils::modregistry::ModRegistry::validate_registry(&app_handle) {
+                    Ok(_) => log::info!("Mod registry validation passed (or file doesn't exist)."),
+                    Err(e) => {
+                        log::error!("Mod registry validation failed: {}. Setup required.", e);
+                        needs_setup = true;
+                         validation_error.get_or_insert_with(String::new).push_str(&format!(" Mod registry error: {};", e));
+                    }
+                 }
+            }
+
+            // 3. Validate skin registry (only if setup not already needed)
+            if !needs_setup {
+                match utils::skinmanager::validate_registry(&app_handle) {
+                    Ok(_) => log::info!("Skin registry validation passed (or file doesn't exist)."),
+                    Err(e) => {
+                        log::error!("Skin registry validation failed: {}. Setup required.", e);
+                        needs_setup = true;
+                        validation_error.get_or_insert_with(String::new).push_str(&format!(" Skin registry error: {};", e));
+                    }
+                }
+            }
+            
+            // TODO: Handle validation_error? Maybe show it in the setup screen?
+            if let Some(err_msg) = validation_error {
+                 log::warn!("Configuration validation errors encountered: {}", err_msg);
+            }
+
+            // Create and manage startup state
+            let startup_state = StartupState { needs_setup };
+            app.manage(startup_state);
+            log::info!("Startup state managed: needs_setup = {}", needs_setup);
+            // --- End Startup Validation ---
+
+            // Ensure API cache system is initialized (moved after validation)
+            let cache = ApiCache::new(app_handle.clone());
             app.manage(cache);
+            log::info!("API Cache managed.");
+
+            // Get the main window and hide it initially
+            let main_window = app.get_webview_window("main").ok_or_else(|| "Failed to get main window".to_string())?;
+            main_window.hide().map_err(|e| e.to_string())?; // Hide window until frontend is ready
+            log::info!("Main window hidden initially.");
+
+
+            // Attach the close handler directly to the main window using on_window_event
+            // Clone app_handle again if the previous one was moved
+            let close_handle = app_handle.clone(); 
+            main_window.on_window_event(move |event| {
+                if let WindowEvent::CloseRequested { .. } = event {
+                    log::info!("Main window close requested via on_window_event. Exiting application.");
+                    close_handle.exit(0); // Exit the entire application
+                }
+            });
+             log::info!("Window event listener (for close requested) added to main window.");
 
             Ok(())
         })

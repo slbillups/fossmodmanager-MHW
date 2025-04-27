@@ -9,7 +9,7 @@ use tauri::{AppHandle, Manager};
 
 /// Core representation of a mod in the registry
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[allow(unused_exports)]
+#[allow(unused_imports)]
 
 pub struct Mod {
     // Core identification
@@ -143,6 +143,46 @@ impl ModRegistry {
             .map_err(|e| format!("Failed to create config directory: {}", e))?;
 
         Ok(config_dir.join("mod_registry.json"))
+    }
+
+    /// Validate the registry file
+    /// Returns Ok if the file doesn't exist or is valid JSON.
+    /// Returns Err only if the file exists but cannot be parsed.
+    pub fn validate_registry(app_handle: &AppHandle) -> Result<(), String> {
+        let registry_path = Self::get_registry_path(app_handle)?;
+
+        if !registry_path.exists() {
+            log::debug!("Mod registry file does not exist, validation skipped.");
+            return Ok(()); // Not existing is valid
+        }
+
+        match fs::read_to_string(&registry_path) {
+            Ok(content) => {
+                if content.is_empty() {
+                   log::warn!("Mod registry file is empty, considering valid for now.");
+                   return Ok(()); // Empty is technically parsable, consider valid for now
+                }
+                // Attempt to parse, discard the result, only care about errors
+                match serde_json::from_str::<Self>(&content) {
+                     Ok(_) => {
+                        log::info!("Mod registry validation successful.");
+                        Ok(())
+                    },
+                    Err(e) => {
+                        log::error!("Mod registry validation failed: {}", e);
+                        Err(format!("Failed to parse mod_registry.json: {}", e))
+                    }
+                }
+            }
+            Err(e) => {
+                // Errors other than NotFound during read are problematic
+                 log::error!("Failed to read mod_registry.json for validation: {}", e);
+                Err(format!(
+                    "Failed to read mod_registry.json for validation: {}",
+                    e
+                ))
+            }
+        }
     }
 
     /// Load the registry from disk

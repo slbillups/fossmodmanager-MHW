@@ -82,6 +82,46 @@ fn get_registry_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
     Ok(config_dir.join("skin_registry.json"))
 }
 
+/// Validate the skin registry file
+/// Returns Ok if the file doesn't exist or is valid JSON.
+/// Returns Err only if the file exists but cannot be parsed.
+pub fn validate_registry(app_handle: &AppHandle) -> Result<(), String> {
+    let registry_path = get_registry_path(app_handle)?;
+
+    if !registry_path.exists() {
+        log::debug!("Skin registry file does not exist, validation skipped.");
+        return Ok(()); // Not existing is valid
+    }
+
+    match fs::read_to_string(&registry_path) {
+        Ok(content) => {
+            if content.is_empty() {
+                log::warn!("Skin registry file is empty, considering valid for now.");
+                return Ok(()); // Empty is technically parsable, consider valid
+            }
+            // Attempt to parse, discard the result, only care about errors
+            match serde_json::from_str::<SkinRegistry>(&content) {
+                Ok(_) => {
+                     log::info!("Skin registry validation successful.");
+                    Ok(())
+                },
+                Err(e) => {
+                    log::error!("Skin registry validation failed: {}", e);
+                    Err(format!("Failed to parse skin_registry.json: {}", e))
+                }
+            }
+        }
+        Err(e) => {
+            // Errors other than NotFound during read are problematic
+            log::error!("Failed to read skin_registry.json for validation: {}", e);
+            Err(format!(
+                "Failed to read skin_registry.json for validation: {}",
+                e
+            ))
+        }
+    }
+}
+
 //--------- Skin Management Commands ---------//
 
 // Scan for skin mods in the fossmodmanager/mods directory
