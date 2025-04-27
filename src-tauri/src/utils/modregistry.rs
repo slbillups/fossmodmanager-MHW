@@ -10,7 +10,6 @@ use tauri::{AppHandle, Manager};
 /// Core representation of a mod in the registry
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[allow(unused_imports)]
-
 pub struct Mod {
     // Core identification
     pub name: String,           // Display name (user-friendly)
@@ -50,6 +49,7 @@ pub struct SkinMod {
     pub thumbnail_path: Option<String>, // Path to preview image
     pub conflicts: Vec<String>,         // List of other mods this conflicts with
     pub files: Vec<ModFile>,            // Individual files included in this skin mod
+    pub installed_files: Vec<String>,   // List of files installed by this mod
 }
 
 /// Structure to track individual files within a mod for conflict resolution
@@ -312,6 +312,7 @@ impl ModRegistry {
                         thumbnail_path: legacy_skin.thumbnail_path,
                         conflicts: Vec::new(),
                         files: Vec::new(), // Will be populated on refresh
+                        installed_files: Vec::new(), // Will be populated on refresh
                     };
 
                     registry.skin_mods.push(skin_mod);
@@ -376,33 +377,33 @@ impl ModRegistry {
     }
 
     /// Convert a SkinMod to a frontend-friendly ModInfo
-    pub fn skin_to_mod_info(sm: &SkinMod) -> ModInfo {
-        ModInfo {
-            directory_name: sm.base.directory_name.clone(),
-            name: Some(sm.base.name.clone()),
-            version: sm.base.version.clone(),
-            author: sm.base.author.clone(),
-            description: sm.base.description.clone(),
-            enabled: sm.base.enabled,
-        }
-    }
+    // pub fn skin_to_mod_info(sm: &SkinMod) -> ModInfo {
+    //     ModInfo {
+    //         directory_name: sm.base.directory_name.clone(),
+    //         name: Some(sm.base.name.clone()),
+    //         version: sm.base.version.clone(),
+    //         author: sm.base.author.clone(),
+    //         description: sm.base.description.clone(),
+    //         enabled: sm.base.enabled,
+    //     }
+    // }
 
     /// Get all mods as ModInfo objects (for frontend compatibility)
-    pub fn get_all_mod_info(&self) -> Vec<ModInfo> {
-        let mut result = Vec::new();
+    // pub fn get_all_mod_info(&self) -> Vec<ModInfo> {
+    //     let mut result = Vec::new();
 
-        // Add standard mods
-        for m in &self.mods {
-            result.push(Self::to_mod_info(m));
-        }
+    //     // Add standard mods
+    //     for m in &self.mods {
+    //         result.push(Self::to_mod_info(m));
+    //     }
 
-        // Add skin mods
-        for sm in &self.skin_mods {
-            result.push(Self::skin_to_mod_info(sm));
-        }
+    //     // Add skin mods
+    //     for sm in &self.skin_mods {
+    //         result.push(Self::skin_to_mod_info(sm));
+    //     }
 
-        result
-    }
+    //     result
+    // }
 
     /// Get REFramework mods as ModInfo objects
     pub fn get_reframework_mod_info(&self) -> Vec<ModInfo> {
@@ -417,9 +418,9 @@ impl ModRegistry {
     }
 
     /// Get skin mods as ModInfo objects
-    pub fn get_skin_mod_info(&self) -> Vec<ModInfo> {
-        self.skin_mods.iter().map(Self::skin_to_mod_info).collect()
-    }
+    // pub fn get_skin_mod_info(&self) -> Vec<ModInfo> {
+    //     self.skin_mods.iter().map(Self::skin_to_mod_info).collect()
+    // }
 
     /// Find a mod by directory name
     pub fn find_mod(&self, directory_name: &str) -> Option<&Mod> {
@@ -439,13 +440,6 @@ impl ModRegistry {
     pub fn find_skin_mod(&self, directory_name: &str) -> Option<&SkinMod> {
         self.skin_mods
             .iter()
-            .find(|m| m.base.directory_name == directory_name)
-    }
-
-    /// Find a skin mod by directory name (mutable)
-    pub fn find_skin_mod_mut(&mut self, directory_name: &str) -> Option<&mut SkinMod> {
-        self.skin_mods
-            .iter_mut()
             .find(|m| m.base.directory_name == directory_name)
     }
 
@@ -492,41 +486,41 @@ impl ModRegistry {
     }
 
     /// Add a new skin mod to the registry
-    pub fn add_skin_mod(&mut self, new_skin_mod: SkinMod) {
-        // Remove any existing skin mod with same directory name
-        self.skin_mods
-            .retain(|m| m.base.directory_name != new_skin_mod.base.directory_name);
-        // Add the new skin mod
-        self.skin_mods.push(new_skin_mod);
-        self.last_updated = chrono::Utc::now().timestamp();
-    }
+    // pub fn add_skin_mod(&mut self, new_skin_mod: SkinMod) {
+    //     // Remove any existing skin mod with same directory name
+    //     self.skin_mods
+    //         .retain(|m| m.base.directory_name != new_skin_mod.base.directory_name);
+    //     // Add the new skin mod
+    //     self.skin_mods.push(new_skin_mod);
+    //     self.last_updated = chrono::Utc::now().timestamp();
+    // }
 
     /// Remove a mod from the registry
-    pub fn remove_mod(&mut self, directory_name: &str) -> bool {
-        let initial_count = self.mods.len();
-        self.mods.retain(|m| m.directory_name != directory_name);
-        let removed = self.mods.len() != initial_count;
+    // pub fn remove_mod(&mut self, directory_name: &str) -> bool {
+    //     let initial_count = self.mods.len();
+    //     self.mods.retain(|m| m.directory_name != directory_name);
+    //     let removed = self.mods.len() != initial_count;
 
-        if removed {
-            self.last_updated = chrono::Utc::now().timestamp();
-        }
+    //     if removed {
+    //         self.last_updated = chrono::Utc::now().timestamp();
+    //     }
 
-        removed
-    }
+    //     removed
+    // }
 
     /// Remove a skin mod from the registry
-    pub fn remove_skin_mod(&mut self, directory_name: &str) -> bool {
-        let initial_count = self.skin_mods.len();
-        self.skin_mods
-            .retain(|m| m.base.directory_name != directory_name);
-        let removed = self.skin_mods.len() != initial_count;
+    // pub fn remove_skin_mod(&mut self, directory_name: &str) -> bool {
+    //     let initial_count = self.skin_mods.len();
+    //     self.skin_mods
+    //         .retain(|m| m.base.directory_name != directory_name);
+    //     let removed = self.skin_mods.len() != initial_count;
 
-        if removed {
-            self.last_updated = chrono::Utc::now().timestamp();
-        }
+    //     if removed {
+    //         self.last_updated = chrono::Utc::now().timestamp();
+    //     }
 
-        removed
-    }
+    //     removed
+    // }
 
     /// Toggle a mod's enabled state
     pub fn toggle_mod_enabled(&mut self, directory_name: &str, enable: bool) -> Result<(), String> {
@@ -540,24 +534,24 @@ impl ModRegistry {
         }
     }
 
-    /// Toggle a skin mod's enabled state
-    pub fn toggle_skin_mod_enabled(
-        &mut self,
-        directory_name: &str,
-        enable: bool,
-    ) -> Result<(), String> {
-        // Find the skin mod
-        if let Some(skin_mod) = self.find_skin_mod_mut(directory_name) {
-            skin_mod.base.enabled = enable;
-            self.last_updated = chrono::Utc::now().timestamp();
-            Ok(())
-        } else {
-            Err(format!(
-                "Skin mod '{}' not found in registry",
-                directory_name
-            ))
-        }
-    }
+    // Toggle a skin mod's enabled state
+    // pub fn toggle_skin_mod_enabled(
+    //     &mut self,
+    //     directory_name: &str,
+    //     enable: bool,
+    // ) -> Result<(), String> {
+    //     // Find the skin mod
+    //     if let Some(skin_mod) = self.find_skin_mod_mut(directory_name) {
+    //         skin_mod.base.enabled = enable;
+    //         self.last_updated = chrono::Utc::now().timestamp();
+    //         Ok(())
+    //     } else {
+    //         Err(format!(
+    //             "Skin mod '{}' not found in registry",
+    //             directory_name
+    //         ))
+    //     }
+    // }
 }
 
 // Utility functions
@@ -704,6 +698,48 @@ pub fn extract_mod_name_from_folder(folder_name: &str) -> String {
     folder_name.to_string()
 }
 
+/// Find screenshot in a mod directory (copied from skinmanager.rs)
+fn find_screenshot(mod_dir: &Path) -> Option<String> {
+    // Look for screenshot with common names
+    let screenshot_candidates = vec![
+        "preview.jpg",
+        "preview.png",
+        "screenshot.jpg",
+        "screenshot.png",
+        "thumb.jpg",
+        "thumb.png",
+        "image.jpg",
+        "image.png",
+        "1.png",
+        "1.jpg",
+    ];
+
+    // Check in the main directory
+    for candidate in &screenshot_candidates {
+        let candidate_path = mod_dir.join(candidate);
+        if candidate_path.exists() && candidate_path.is_file() {
+            return Some(candidate_path.to_string_lossy().to_string());
+        }
+    }
+
+    // If not found, check in immediate subdirectories
+    if let Ok(entries) = fs::read_dir(mod_dir) {
+        for entry in entries.filter_map(Result::ok) {
+            let sub_path = entry.path();
+            if sub_path.is_dir() {
+                for candidate in &screenshot_candidates {
+                    let candidate_path = sub_path.join(candidate);
+                    if candidate_path.exists() && candidate_path.is_file() {
+                        return Some(candidate_path.to_string_lossy().to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
 /// List all REFramework mods from the registry
 #[tauri::command]
 pub async fn list_mods(
@@ -730,3 +766,343 @@ pub async fn list_mods(
     );
     Ok(mods_info)
 }
+
+// --------- Skin Mod Management Commands (Consolidated) --------- //
+
+use std::collections::HashMap;
+use walkdir::WalkDir;
+
+#[tauri::command]
+pub async fn scan_and_update_skin_mods(
+    app_handle: AppHandle,
+    game_root_path: String,
+) -> Result<Vec<SkinMod>, String> {
+    log::info!(
+        "Scanning for skin mods in {} and updating registry",
+        game_root_path
+    );
+
+    let game_root = PathBuf::from(&game_root_path);
+    if !game_root.exists() || !game_root.is_dir() {
+        return Err(format!("Invalid game root path: {}", game_root_path));
+    }
+
+    // Look in <game_root>/fossmodmanager/mods
+    let mods_dir = game_root.join("fossmodmanager").join("mods");
+    log::debug!("Looking for mods in {:?}", mods_dir);
+
+    if !mods_dir.exists() || !mods_dir.is_dir() {
+        log::info!("Mods directory does not exist: {:?}", mods_dir);
+        // Load existing registry anyway to return its current state
+        let registry = ModRegistry::load(&app_handle)?;
+        return Ok(registry.skin_mods);
+    }
+
+    // Load the existing registry
+    let mut registry = ModRegistry::load(&app_handle)?;
+    let mut existing_mods: HashMap<String, SkinMod> = registry
+        .skin_mods
+        .iter()
+        .map(|m| (m.base.path.clone(), m.clone()))
+        .collect();
+
+    let mut updated_or_new_mods = Vec::new();
+    let mut found_mod_paths = std::collections::HashSet::new();
+
+    // Scan the mods directory
+    for entry in WalkDir::new(&mods_dir)
+        .max_depth(1)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        let path = entry.path();
+
+        // Skip the root directory itself
+        if path == mods_dir {
+            continue;
+        }
+
+        if path.is_dir() {
+            log::debug!("Inspecting potential skin mod folder: {:?}", path);
+
+            // Get mod path as string
+            let mod_path = path.to_string_lossy().to_string();
+            found_mod_paths.insert(mod_path.clone());
+
+            // Check if we already have this mod in the registry
+            if let Some(existing_mod) = existing_mods.remove(&mod_path) {
+                // TODO: Maybe check for updates here?
+                updated_or_new_mods.push(existing_mod);
+                continue;
+            }
+
+            // If not in registry, it's a new mod
+            let folder_name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("Unknown")
+                .to_string();
+
+            let display_name = extract_mod_name_from_folder(&folder_name);
+            let screenshot_path = find_screenshot(path);
+
+            // Create the base Mod struct
+            let base_mod = Mod {
+                name: display_name.clone(),
+                directory_name: folder_name,
+                path: mod_path.clone(),
+                enabled: false, // New mods start disabled
+                author: None,
+                version: None,
+                description: None,
+                source: Some("local_scan".to_string()),
+                installed_timestamp: chrono::Utc::now().timestamp(),
+                installed_directory: mod_path.clone(), // Use mod path as identifier for skins
+                mod_type: ModType::SkinMod,
+            };
+
+            // Create the SkinMod struct
+            let skin_mod = SkinMod {
+                base: base_mod,
+                thumbnail_path: screenshot_path,
+                conflicts: Vec::new(),
+                files: Vec::new(), // Files are populated on enable
+                installed_files: Vec::new(),
+            };
+
+            updated_or_new_mods.push(skin_mod);
+        }
+    }
+
+    // Update registry with the latest list (removes mods no longer found)
+    registry.skin_mods = updated_or_new_mods;
+    registry.last_updated = chrono::Utc::now().timestamp();
+    registry.save(&app_handle)?;
+
+    log::info!("Scan complete. Registry contains {} skin mods", registry.skin_mods.len());
+    Ok(registry.skin_mods)
+}
+
+#[tauri::command]
+pub async fn enable_skin_mod_via_registry(
+    app_handle: AppHandle,
+    game_root_path: String,
+    mod_path: String, // Use the original path as identifier
+) -> Result<(), String> {
+    log::info!("Enabling skin mod via registry: {}", mod_path);
+
+    let game_root = PathBuf::from(&game_root_path);
+    if !game_root.exists() || !game_root.is_dir() {
+        return Err(format!("Invalid game root path: {}", game_root_path));
+    }
+
+    let mod_dir = PathBuf::from(&mod_path);
+    if !mod_dir.exists() || !mod_dir.is_dir() {
+        return Err(format!("Invalid mod path: {}", mod_path));
+    }
+
+    // Load the registry
+    let mut registry = ModRegistry::load(&app_handle)?;
+
+    // Find the mod to enable
+    let mod_index = registry
+        .skin_mods
+        .iter()
+        .position(|m| m.base.path == mod_path)
+        .ok_or_else(|| format!("SkinMod with path '{}' not found in registry", mod_path))?;
+
+    // Check if already enabled
+    if registry.skin_mods[mod_index].base.enabled {
+        log::info!("SkinMod '{}' is already enabled.", mod_path);
+        return Ok(());
+    }
+
+    let mut installed_files = Vec::new();
+
+    // 1. Install .pak files
+    for entry in WalkDir::new(&mod_dir)
+        .max_depth(3) // Limit depth
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            e.path().is_file()
+                && e.path()
+                    .extension()
+                    .is_some_and(|ext| ext.to_string_lossy().to_lowercase() == "pak")
+        })
+    {
+        let source_path = entry.path();
+        let file_name = source_path
+            .file_name()
+            .ok_or_else(|| format!("Invalid filename in path: {}", source_path.display()))?;
+
+        let dest_path = game_root.join(file_name);
+        log::info!(
+            "Installing .pak file: {} -> {}",
+            source_path.display(),
+            dest_path.display()
+        );
+
+        fs::copy(source_path, &dest_path).map_err(|e| {
+            format!(
+                "Failed to copy file {} to {}: {}",
+                source_path.display(),
+                dest_path.display(),
+                e
+            )
+        })?;
+        installed_files.push(dest_path.to_string_lossy().to_string());
+    }
+
+    // 2. Install natives files
+    let natives_dir = mod_dir.join("natives");
+    if natives_dir.exists() && natives_dir.is_dir() {
+        let game_natives_dir = game_root.join("natives");
+        fs::create_dir_all(&game_natives_dir)
+            .map_err(|e| format!("Failed to create natives directory in game root: {}", e))?;
+
+        for entry in WalkDir::new(&natives_dir)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().is_file())
+        {
+            let source_path = entry.path();
+            let rel_path = source_path
+                .strip_prefix(&natives_dir)
+                .map_err(|e| format!("Path stripping error: {}", e))?;
+            let dest_path = game_natives_dir.join(rel_path);
+
+            if let Some(parent) = dest_path.parent() {
+                fs::create_dir_all(parent).map_err(|e| {
+                    format!("Failed to create directory {}: {}", parent.display(), e)
+                })?;
+            }
+
+            log::info!(
+                "Installing natives file: {} -> {}",
+                source_path.display(),
+                dest_path.display()
+            );
+            fs::copy(source_path, &dest_path).map_err(|e| {
+                format!(
+                    "Failed to copy file {} to {}: {}",
+                    source_path.display(),
+                    dest_path.display(),
+                    e
+                )
+            })?;
+            installed_files.push(dest_path.to_string_lossy().to_string());
+        }
+    }
+
+    // Update the registry entry
+    if let Some(skin_mod) = registry.skin_mods.get_mut(mod_index) {
+        skin_mod.base.enabled = true;
+        skin_mod.installed_files = installed_files.clone(); // Store the list
+         log::info!(
+            "Updated registry for '{}'. Enabled: {}, Installed Files: {}",
+            mod_path,
+            skin_mod.base.enabled,
+            skin_mod.installed_files.len()
+        );
+    } else {
+         // This should theoretically not happen due to the initial find
+        return Err(format!("Failed to get mutable reference to SkinMod '{}' after finding it.", mod_path));
+    }
+
+    registry.last_updated = chrono::Utc::now().timestamp();
+    registry.save(&app_handle)?;
+
+    log::info!("Successfully enabled skin mod '{}' via registry.", mod_path);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn disable_skin_mod_via_registry(
+    app_handle: AppHandle,
+    _game_root_path: String, // Game root not strictly needed if paths are absolute
+    mod_path: String,       // Use the original path as identifier
+) -> Result<(), String> {
+    log::info!("Disabling skin mod via registry: {}", mod_path);
+
+    // Load the registry
+    let mut registry = ModRegistry::load(&app_handle)?;
+
+    // Find the mod to disable
+    let mod_index = registry
+        .skin_mods
+        .iter()
+        .position(|m| m.base.path == mod_path)
+        .ok_or_else(|| format!("SkinMod with path '{}' not found in registry", mod_path))?;
+
+    // Check if already disabled
+    if !registry.skin_mods[mod_index].base.enabled {
+        log::info!("SkinMod '{}' is already disabled.", mod_path);
+        return Ok(());
+    }
+
+    // Get the list of installed files to remove
+    let installed_files = registry.skin_mods[mod_index].installed_files.clone();
+
+    log::info!(
+        "Removing {} installed files for mod: {}",
+        installed_files.len(),
+        mod_path
+    );
+
+    // Remove installed files from the filesystem
+    let mut removal_errors = Vec::new();
+    for file_path_str in &installed_files {
+        let file_path = PathBuf::from(file_path_str);
+        if file_path.exists() {
+            log::debug!("Removing file: {}", file_path.display());
+            if let Err(e) = fs::remove_file(&file_path) {
+                log::warn!("Failed to remove file {}: {}", file_path.display(), e);
+                // Don't stop, try removing others, but log the error
+                removal_errors.push(format!("Failed to remove {}: {}", file_path.display(), e));
+            }
+        } else {
+            log::warn!(
+                "File listed in registry for '{}' not found at path: {}",
+                mod_path,
+                file_path.display()
+            );
+        }
+    }
+
+    // Update the registry entry regardless of removal errors (to reflect desired state)
+    if let Some(skin_mod) = registry.skin_mods.get_mut(mod_index) {
+        skin_mod.base.enabled = false;
+        skin_mod.installed_files.clear(); // Clear the list
+        log::info!(
+            "Updated registry for '{}'. Enabled: {}, Cleared installed files.",
+            mod_path,
+            skin_mod.base.enabled
+        );
+    } else {
+         // This should theoretically not happen
+        return Err(format!("Failed to get mutable reference to SkinMod '{}' after finding it.", mod_path));
+    }
+
+    registry.last_updated = chrono::Utc::now().timestamp();
+    registry.save(&app_handle)?;
+
+    if !removal_errors.is_empty() {
+        log::error!("Errors occurred during file removal for '{}': {}. Registry state updated anyway.", mod_path, removal_errors.join("; "));
+        // Decide if this should be a hard error for the frontend
+        // For now, we'll return Ok but log the errors.
+        // return Err(format!("Errors during file removal: {}", removal_errors.join("; ")));
+    }
+
+    log::info!("Successfully disabled skin mod '{}' via registry.", mod_path);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn list_skin_mods_from_registry(app_handle: AppHandle) -> Result<Vec<SkinMod>, String> {
+    log::info!("Listing installed skin mods from registry");
+    let registry = ModRegistry::load(&app_handle)?;
+    Ok(registry.skin_mods)
+}
+
+// --------- End Skin Mod Management Commands --------- //

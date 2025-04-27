@@ -22,14 +22,16 @@ const SkinMods = ({ gameRoot }) => {
     setError(null);
     
     try {
-      // First scan for new mods
-      const mods = await invoke('scan_for_skin_mods', { 
+      // First scan for new mods and update registry
+      const mods = await invoke('scan_and_update_skin_mods', { 
         gameRootPath: gameRoot,
-        appHandle: {} // This gets ignored but helps with function signature
+        // No appHandle needed from frontend
       });
       
-      // Then load all mods from registry (including enabled state)
-      const installedMods = await invoke('list_installed_skin_mods', {});
+      // Then load all mods from the updated registry
+      // This might seem redundant if scan_and_update returns the list,
+      // but ensures we always fetch the definitive state from the registry
+      const installedMods = await invoke('list_skin_mods_from_registry', {}); 
       
       console.log('Found skin mods:', installedMods);
       setSkinMods(installedMods || []);
@@ -59,25 +61,25 @@ const SkinMods = ({ gameRoot }) => {
     }
 
     const actionType = enable ? 'Enabling' : 'Disabling';
-    setProcessingMod(mod.path);
+    setProcessingMod(mod.base.path);
     
     try {
       // Call the appropriate function based on the toggle action
       if (enable) {
-        await invoke('enable_skin_mod', { 
+        await invoke('enable_skin_mod_via_registry', { 
           gameRootPath: gameRoot,
-          modPath: mod.path
+          modPath: mod.base.path // Access path via base
         });
       } else {
-        await invoke('disable_skin_mod', { 
-          gameRootPath: gameRoot,
-          modPath: mod.path
+        await invoke('disable_skin_mod_via_registry', { 
+          gameRootPath: gameRoot, // Pass gameRoot for consistency, though maybe not needed
+          modPath: mod.base.path // Access path via base
         });
       }
       
       notification.success({
         message: `Skin ${enable ? 'Enabled' : 'Disabled'}`,
-        description: `Successfully ${enable ? 'enabled' : 'disabled'} ${mod.name}`
+        description: `Successfully ${enable ? 'enabled' : 'disabled'} ${mod.base.name}`
       });
       
       // Refresh the mod list to show updated status
@@ -222,7 +224,7 @@ const SkinMods = ({ gameRoot }) => {
                   <div style={{ height: 200, position: 'relative' }}>
                     {mod.thumbnail_path && imageData[mod.thumbnail_path] ? (
                       <img 
-                        alt={mod.name || 'Mod Screenshot'} 
+                        alt={mod.base.name || 'Mod Screenshot'} // Access name via base
                         src={imageData[mod.thumbnail_path]}
                         style={{ 
                           height: '100%', 
@@ -253,14 +255,14 @@ const SkinMods = ({ gameRoot }) => {
                       position: 'absolute', 
                       top: 8, 
                       right: 8, 
-                      background: mod.enabled ? 'rgba(82, 196, 26, 0.8)' : 'rgba(245, 34, 45, 0.8)', 
+                      background: mod.base.enabled ? 'rgba(82, 196, 26, 0.8)' : 'rgba(245, 34, 45, 0.8)', // Access enabled via base 
                       color: 'white',
                       padding: '2px 8px',
                       borderRadius: '4px',
                       display: 'flex',
                       alignItems: 'center'
                     }}>
-                      {mod.enabled ? 
+                      {mod.base.enabled ? 
                         <><CheckCircleOutlined style={{ marginRight: 5 }} /> Enabled</> : 
                         <><StopOutlined style={{ marginRight: 5 }} /> Disabled</>
                       }
@@ -269,24 +271,24 @@ const SkinMods = ({ gameRoot }) => {
                 )}
               >
                 <Meta 
-                  title={<span style={{ textTransform: 'capitalize' }}>{mod.name || 'Unnamed Mod'}</span>} 
+                  title={<span style={{ textTransform: 'capitalize' }}>{mod.base.name || 'Unnamed Mod'}</span>} 
                   description={
                     <>
-                      {mod.description && <div>{mod.description}</div>}
-                      {mod.author && <div>By: {mod.author}</div>}
-                      {mod.version && <div>Version: {mod.version}</div>}
-                      {!mod.author && !mod.version && !mod.description && (
+                      {mod.base.description && <div>{mod.base.description}</div>}
+                      {mod.base.author && <div>By: {mod.base.author}</div>}
+                      {mod.base.version && <div>Version: {mod.base.version}</div>}
+                      {!mod.base.author && !mod.base.version && !mod.base.description && (
                         <div>No additional information available</div>
                       )}
                     </>
                   }
                 />
                 <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Tag color="blue">{mod.path.split('/').pop()}</Tag>
-                  <Tooltip title={`${mod.enabled ? 'Disable' : 'Enable'} this skin mod`}>
+                  <Tag color="blue">{mod.base.path.split(/[\\/]/).pop()}</Tag>
+                  <Tooltip title={`${mod.base.enabled ? 'Disable' : 'Enable'} this skin mod`}>
                     <Switch
-                      checked={mod.enabled}
-                      loading={processingMod === mod.path}
+                      checked={mod.base.enabled}
+                      loading={processingMod === mod.base.path}
                       onChange={(checked) => toggleModEnabled(mod, checked)}
                     />
                   </Tooltip>

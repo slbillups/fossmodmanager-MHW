@@ -446,10 +446,10 @@ struct SkinMetadata {
 }
 
 // #[derive(Debug, Serialize, Deserialize, Clone)]
-struct ModListContainer {
-    mods: Vec<ModMetadata>,
-    skins: Vec<SkinMetadata>,
-}
+// struct ModListContainer {
+//     mods: Vec<ModMetadata>,
+//     skins: Vec<SkinMetadata>,
+// }
 
 // For legacy compatibility
 // type ModList = Vec<ModMetadata>;
@@ -646,16 +646,17 @@ async fn install_mod_from_zip(
 
 // --- Helper Function ---
 // Function to get the full path to a file within the app's config directory
-fn get_app_config_path(app_handle: &AppHandle, filename: &str) -> Result<PathBuf, String> {
-    let config_dir = app_handle
-        .path()
-        .app_config_dir()
-        .map_err(|e| format!("Failed to get app config dir: {}", e))?;
-    // Ensure the directory exists before returning path
-    fs::create_dir_all(&config_dir)
-        .map_err(|e| format!("Failed to create config directory {:?}: {}", config_dir, e))?;
-    Ok(config_dir.join(filename))
-}
+// legacy: unused code
+// fn get_app_config_path(app_handle: &AppHandle, filename: &str) -> Result<PathBuf, String> {
+//     let config_dir = app_handle
+//         .path()
+//         .app_config_dir()
+//         .map_err(|e| format!("Failed to get app config dir: {}", e))?;
+//     // Ensure the directory exists before returning path
+//     fs::create_dir_all(&config_dir)
+//         .map_err(|e| format!("Failed to create config directory {:?}: {}", config_dir, e))?;
+//     Ok(config_dir.join(filename))
+// }
 
 // --- New Command: Preload Mod Assets ---
 #[tauri::command]
@@ -773,11 +774,11 @@ pub fn run() {
             utils::cachethumbs::read_mod_image,
             utils::cachethumbs::cache_mod_image,
             utils::cachethumbs::get_cached_mod_images,
-            // Skin management commands
-            utils::skinmanager::scan_for_skin_mods,
-            utils::skinmanager::enable_skin_mod,
-            utils::skinmanager::disable_skin_mod,
-            utils::skinmanager::list_installed_skin_mods,
+            // Skin management commands (now from modregistry)
+            utils::modregistry::scan_and_update_skin_mods, // Renamed
+            utils::modregistry::enable_skin_mod_via_registry, // Renamed
+            utils::modregistry::disable_skin_mod_via_registry, // Renamed
+            utils::modregistry::list_skin_mods_from_registry, // Renamed
         ])
         .setup(|app| {
             log::info!("Executing Tauri setup closure...");
@@ -818,17 +819,17 @@ pub fn run() {
                  }
             }
 
-            // 3. Validate skin registry (only if setup not already needed)
-            if !needs_setup {
-                match utils::skinmanager::validate_registry(&app_handle) {
-                    Ok(_) => log::info!("Skin registry validation passed (or file doesn't exist)."),
-                    Err(e) => {
-                        log::error!("Skin registry validation failed: {}. Setup required.", e);
-                        needs_setup = true;
-                        validation_error.get_or_insert_with(String::new).push_str(&format!(" Skin registry error: {};", e));
-                    }
-                }
-            }
+            // 3. Validate skin registry (now handled by ModRegistry validation)
+            // if !needs_setup {
+            //     match utils::skinmanager::validate_registry(&app_handle) {
+            //         Ok(_) => log::info!("Skin registry validation passed (or file doesn't exist)."),
+            //         Err(e) => {
+            //             log::error!("Skin registry validation failed: {}. Setup required.", e);
+            //             needs_setup = true;
+            //             validation_error.get_or_insert_with(String::new).push_str(&format!(" Skin registry error: {};", e));
+            //         }
+            //     }
+            // }
             
             // TODO: Handle validation_error? Maybe show it in the setup screen?
             if let Some(err_msg) = validation_error {
