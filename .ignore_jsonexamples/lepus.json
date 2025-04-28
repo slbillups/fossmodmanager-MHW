@@ -1,0 +1,652 @@
+{
+  "name": "LepusSkin",
+  "type": "directory",
+  "children": [
+    {
+      "name": ".json",
+      "type": "file"
+    },
+    {
+      "name": "Lepus -Model",
+      "type": "directory",
+      "children": [
+        {
+          "name": "natives",
+          "type": "directory",
+          "children": [
+            {
+              "name": "stm",
+              "type": "directory",
+              "children": [
+                {
+                  "name": "GameDesign",
+                  "type": "directory",
+                  "children": [
+                    {
+                      "name": "Equip",
+                      "type": "directory",
+                      "children": [
+                        {
+                          "name": "_Prefab",
+                          "type": "directory",
+                          "children": [
+                            {
+                              "name": "Armor",
+                              "type": "directory",
+                              "children": [
+                                {
+                                  "name": "Female",
+                                  "type": "directory",
+                                  "children": [
+                                    {
+                                      "name": "004",
+                                      "type": "directory",
+                                      "children": [
+                                        {
+                                          "name": "000",
+                                          "type": "directory",
+                                          "children": [
+                                            {
+                                              "name": "004_000_avp.user.3",
+                                              "type": "file"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "name": "001",
+                                          "type": "directory",
+                                          "children": [
+                                            {
+                                              "name": "004_001_avp.user.3",
+                                              "type": "file"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "name": "008",
+                                      "type": "directory",
+                                      "children": [
+                                        {
+                                          "name": "001",
+                                          "type": "directory",
+                                          "children": [
+                                            {
+                                              "name": "Helm",
+                                              "type": "directory",
+                                              "children": [
+                                                {
+                                                  "name": "ch03_008_0013.pfb.18",
+                                                  "type": "file"
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "name": "060",
+                                      "type": "directory",
+                                      "children": [
+                                        {
+                                          "name": "000",
+                                          "type": "directory",
+                                          "children": [
+                                            {
+                                              "name": "060_000_avp.user.3",
+                                              "type": "file"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "name": "art",
+                  "type": "directory",
+                  "children": [
+                    {
+                      "name": "model",
+                      "type": "directory",
+                      "children": [
+                        {
+                          "name": "character",
+                          "type": "directory",
+                          "children": [
+                            {
+                              "name": "ch00",
+                              "type": "directory",
+                              "children": [
+                                {
+                                  "name": "001",
+                                  "type": "directory",
+                                  "children": [
+                                    {
+                                      "name": "0000",
+                                      "type": "directory",
+                                      "children": [
+                                        {
+                                          "name": "ch00_001_0000.mesh.241111606",
+                                          "type": "file"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "name": "ch02",
+                              "type": "directory",
+                              "children": [
+                                {
+                                  "name": "000",
+                                  "type": "directory",
+                                  "children": [
+                                    {
+                                      "name": "900",
+                                      "type": "directory",
+                                      "children": [
+                                        {
+                                          "name": "ch02_000_9000.fbxskel.7",
+                                          "type": "file"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "name": "ch03",
+                              "type": "directory",
+                              "children": [
+                                {
+                                  "name": "000",
+                                  "type": "directory",
+                                  "children": [
+                                    {
+                                      "name": "900",
+                                      "type": "directory",
+                                      "children": [
+                                        {
+                                          "name": "ch03_000_9000.fbxskel.7",
+                                          "type": "file"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "name": "004",
+                                  "type": "directory",
+                                  "children": [
+                                    {
+                                      "name": "000",
+                                      "type": "directory",
+                                      "children": [
+                                        {
+                                          "name": "1",
+                                          "type": "directory",
+                                          "children": [
+                                            {
+                                              "name": "ch03_004_0001.chain2.13",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0001.clsp.3",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0001.jcns.29",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0001.mdf2.45",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0001.mesh.241111606",
+                                              "type": "file"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "name": "2",
+                                          "type": "directory",
+                                          "children": [
+                                            {
+                                              "name": "ch03_004_0002.chain2.13",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0002.clsp.3",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0002.mdf2.45",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0002.mesh.241111606",
+                                              "type": "file"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "name": "3",
+                                          "type": "directory",
+                                          "children": [
+                                            {
+                                              "name": "ch03_004_0003.chain2.13",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0003.clsp.3",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0003.mdf2.45",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0003.mesh.241111606",
+                                              "type": "file"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "name": "4",
+                                          "type": "directory",
+                                          "children": [
+                                            {
+                                              "name": "ch03_004_0004.chain2.13",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0004.clsp.3",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0004.jcns.29",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0004.mdf2.45",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0004.mesh.241111606",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0004_BS.jcns.29",
+                                              "type": "file"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "name": "5",
+                                          "type": "directory",
+                                          "children": [
+                                            {
+                                              "name": "ch03_004_0005.chain2.13",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0005.clsp.3",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0005.jcns.29",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0005.mdf2.45",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0005.mesh.241111606",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0005_Aim.jcns.29",
+                                              "type": "file"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "name": "001",
+                                      "type": "directory",
+                                      "children": [
+                                        {
+                                          "name": "1",
+                                          "type": "directory",
+                                          "children": [
+                                            {
+                                              "name": "ch03_004_0011.chain2.13",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0011.clsp.3",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0011.jcns.29",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0011.mdf2.45",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0011.mesh.241111606",
+                                              "type": "file"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "name": "2",
+                                          "type": "directory",
+                                          "children": [
+                                            {
+                                              "name": "ch03_004_0012.chain2.13",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0012.clsp.3",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0012.mdf2.45",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0012.mesh.241111606",
+                                              "type": "file"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "name": "3",
+                                          "type": "directory",
+                                          "children": [
+                                            {
+                                              "name": "ch03_004_0013.chain2.13",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0013.clsp.3",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0013.mdf2.45",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0013.mesh.241111606",
+                                              "type": "file"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "name": "4",
+                                          "type": "directory",
+                                          "children": [
+                                            {
+                                              "name": "ch03_004_0014.chain2.13",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0014.clsp.3",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0014.jcns.29",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0014.mdf2.45",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0014.mesh.241111606",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0014_BS.jcns.29",
+                                              "type": "file"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "name": "5",
+                                          "type": "directory",
+                                          "children": [
+                                            {
+                                              "name": "ch03_004_0015.chain2.13",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0015.clsp.3",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0015.jcns.29",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0015.mdf2.45",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0015.mesh.241111606",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_004_0015_Aim.jcns.29",
+                                              "type": "file"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "name": "060",
+                                  "type": "directory",
+                                  "children": [
+                                    {
+                                      "name": "000",
+                                      "type": "directory",
+                                      "children": [
+                                        {
+                                          "name": "1",
+                                          "type": "directory",
+                                          "children": [
+                                            {
+                                              "name": "ch03_060_0001.chain2.13",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0001.clsp.3",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0001.jcns.29",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0001.mdf2.45",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0001.mesh.241111606",
+                                              "type": "file"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "name": "2",
+                                          "type": "directory",
+                                          "children": [
+                                            {
+                                              "name": "ch03_060_0002.chain2.13",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0002.clsp.3",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0002.mdf2.45",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0002.mesh.241111606",
+                                              "type": "file"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "name": "3",
+                                          "type": "directory",
+                                          "children": [
+                                            {
+                                              "name": "ch03_060_0003.chain2.13",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0003.clsp.3",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0003.mdf2.45",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0003.mesh.241111606",
+                                              "type": "file"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "name": "4",
+                                          "type": "directory",
+                                          "children": [
+                                            {
+                                              "name": "ch03_060_0004.chain2.13",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0004.clsp.3",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0004.jcns.29",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0004.mdf2.45",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0004.mesh.241111606",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0004_BS.jcns.29",
+                                              "type": "file"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "name": "5",
+                                          "type": "directory",
+                                          "children": [
+                                            {
+                                              "name": "ch03_002_0015.chain2.13",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_002_0015.mdf2.45",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0005.chain2.13",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0005.clsp.3",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0005.jcns.29",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0005.mdf2.45",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0005.mesh.241111606",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch03_060_0005_Aim.jcns.29",
+                                              "type": "file"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Lepus -Tex",
+      "type": "directory",
+      "children": [
+        {
+          "name": "1.png",
+          "type": "file"
+        },
+        {
+          "name": "modinfo.ini",
+          "type": "file"
+        },
+        {
+          "name": "re_chunk_000.pak.patch_999.pak",
+          "type": "file"
+        }
+      ]
+    }
+  ]
+}

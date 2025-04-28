@@ -17,7 +17,6 @@ import CustomInstallButton from './CustomInstallButton';
 
 // Lazy load components to improve initial load time
 const InstalledSkinMods = lazy(() => import('./SkinMods'));
-const ExtractGameAssets = lazy(() => import('./ExtractGameAssets'));
 const SettingsPage = lazy(() => import('./SettingsPage'));
 const SearchPage = lazy(() => import('./SearchPage'));
 
@@ -29,7 +28,7 @@ const MainContent = () => {
   const { isLoading, setIsLoading, setError } = useContext(GameConfigContext);
 
   const [installedMods, setInstalledMods] = useState([]);
-  const [isModsLoading, setIsModsLoading] = useState(false);
+  const [isModsLoading, setIsModsLoading] = useState( false);
   const [modsError, setModsError] = useState(null);
   const [isInstalling, setIsInstalling] = useState(false);
   const [currentTab, setCurrentTab] = useState('reframework');
@@ -94,7 +93,7 @@ const MainContent = () => {
         console.log("useEffect: gameConfig is null, clearing installedMods.");
         setInstalledMods([]);
     }
-  }, [gameConfig, fetchMods]);
+  }, [gameConfig]);
 
   const getFilename = (fullPath) => {
     if (!fullPath) return 'unknown file';
@@ -416,9 +415,6 @@ const MainContent = () => {
       return (
         <div className={`tab-content ${animating && slideDirection === 'right' ? 'slide-right' : animating && slideDirection === 'left' ? 'tab-enter slide-left' : ''}`}>
           <Suspense fallback={loadingFallback}>
-            <div style={{ marginBottom: '16px' }}>
-              <ExtractGameAssets gameRoot={gameConfig.game_root_path} />
-            </div>
             <InstalledSkinMods gameRoot={gameConfig.game_root_path} />
           </Suspense>
         </div>
@@ -468,11 +464,6 @@ const MainContent = () => {
         <Spin size="large" tip="Loading Configuration..." />
       </div>
     );
-  }
-
-  if (!gameConfig) {
-    // Pass the new handler to SetupOverlay
-    return <SetupOverlay onSetupComplete={handleSetupComplete} />;
   }
 
   if (configError) {
@@ -757,11 +748,7 @@ const MainContent = () => {
     );
   }
 
-  return (
-    <div style={{ padding: '24px', textAlign: 'center' }}>
-      <Text type="secondary">Waiting for configuration or encountering unexpected state...</Text>
-    </div>
-  );
+  return null;
 };
 
 export default MainContent; 

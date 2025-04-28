@@ -37,7 +37,7 @@ const CustomInstallButton = ({ onClick, children, icon, disabled, emphasized = f
     <div className={styles.buttonContainer}>
       <button 
         ref={buttonRef}
-        className={`${styles.button} ${emphasized ? styles.pulse : ''}`}
+        className={`${styles.button} ${emphasized ? styles.disabled : ''}`}
         onClick={onClick}
         disabled={disabled}
         {...props} // Spread any other standard button props
@@ -45,8 +45,8 @@ const CustomInstallButton = ({ onClick, children, icon, disabled, emphasized = f
         {icon && <span className={styles.iconWrapper}>{icon}</span>}
         <span>{children}</span>
       </button>
-      <div className={styles.disclaimer}>
-        Yep, I was nerd-sniped by codepen and worked way too long on this button.
+      <div style={{ paddingTop: '10px', position: 'relative', bottom: '0px', maxWidth: '80%' }} className={styles.disclaimer}>
+        Why yes, I was nerd-sniped by codepen and worked way too long on this button.
       </div>
     </div>
   );

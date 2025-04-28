@@ -15,16 +15,19 @@
         "title": "fossmodmanager",
         "width": 1280,
         "height": 720,
-        "decorations": true,
+        "decorations": false,
+        "visible": false,
         "label": "main"
       },
       {
-        "title": "Setup",
-        "width": 800,
-        "height": 500,
+        "title": "FossModManager Setup",
+        "width": 600,
+        "height": 400,
         "decorations": true,
+        "visible": true,
         "label": "setup",
-        "visible": false
+        "url": "/setup.html",
+        "center": true
       }
     ],
     "security": {
@@ -70,7 +73,11 @@
             "core:window:allow-hide",
             "core:window:allow-set-focus",
             "core:webview:allow-internal-toggle-devtools",
-            "dialog:allow-message"
+            "dialog:allow-message",
+            "core:event:allow-emit",
+            "process:allow-restart",
+            "core:event:allow-listen",
+            "core:event:default"
           ]
         },
         {
@@ -116,13 +123,28 @@
         },
         {
           "identifier": "fossmodmanager-fs-delete-config",
-          "description": "Allows deleting the application config file.",
+          "description": "Allows deleting the application config file and related data.",
           "windows": ["main"],
           "permissions": [
             "core:path:default",
             {
               "identifier": "fs:allow-remove",
-              "scope": { "allow": ["$APPCONFIG/fossmodmanager/userconfig.json"] }
+              "scope": { 
+                "allow": [
+                  "$APPCONFIG/fossmodmanager/userconfig.json",
+                  "$APPDATA/fossmodmanager/**",
+                  "$APPCACHE/fossmodmanager/**"
+                ] 
+              }
+            },
+            {
+              "identifier": "fs:allow-remove",
+              "scope": {
+                "allow": [
+                  "$APPDATA/fossmodmanager",
+                  "$APPCACHE/fossmodmanager"
+                ]
+              }
             }
           ]
         },
@@ -243,7 +265,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "deb", "rpm"],
+    "targets": ["deb", "rpm"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

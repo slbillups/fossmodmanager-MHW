@@ -1,0 +1,19 @@
+/* need to rename to startuppage.css later */
+
+body {
+    /* green background */
+    /* Layer a semi-transparent black gradient over the image to darken it */
+    background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/splashscreen.png'); 
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    /* add shadow and blur to the background to make text and buttons more readable */
+    /* its too bright, so we need to darken it */
+    /* These might have different effects now, adjust if needed */
+    box-shadow: 0 0 10px 10px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+}
+
+
+
+

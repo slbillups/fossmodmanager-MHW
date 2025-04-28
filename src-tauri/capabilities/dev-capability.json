@@ -11,6 +11,9 @@
     "fs:allow-write-file",
     "fs:allow-read-dir",
     "dialog:allow-open",
-    "core:webview:allow-internal-toggle-devtools"
+    "core:webview:allow-internal-toggle-devtools",
+    "os:default",
+    "process:default",
+    "core:event:default"
   ]
 }

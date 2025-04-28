@@ -1,11 +1,12 @@
 // mod_registry.rs - Place this in src-tauri/src/utils/ directory
-
+#![allow(dead_code)]
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
+use walkdir::WalkDir;
 
 /// Core representation of a mod in the registry
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -159,15 +160,15 @@ impl ModRegistry {
         match fs::read_to_string(&registry_path) {
             Ok(content) => {
                 if content.is_empty() {
-                   log::warn!("Mod registry file is empty, considering valid for now.");
-                   return Ok(()); // Empty is technically parsable, consider valid for now
+                    log::warn!("Mod registry file is empty, considering valid for now.");
+                    return Ok(()); // Empty is technically parsable, consider valid for now
                 }
                 // Attempt to parse, discard the result, only care about errors
                 match serde_json::from_str::<Self>(&content) {
-                     Ok(_) => {
+                    Ok(_) => {
                         log::info!("Mod registry validation successful.");
                         Ok(())
-                    },
+                    }
                     Err(e) => {
                         log::error!("Mod registry validation failed: {}", e);
                         Err(format!("Failed to parse mod_registry.json: {}", e))
@@ -176,7 +177,7 @@ impl ModRegistry {
             }
             Err(e) => {
                 // Errors other than NotFound during read are problematic
-                 log::error!("Failed to read mod_registry.json for validation: {}", e);
+                log::error!("Failed to read mod_registry.json for validation: {}", e);
                 Err(format!(
                     "Failed to read mod_registry.json for validation: {}",
                     e
@@ -311,7 +312,7 @@ impl ModRegistry {
                         base: base_mod,
                         thumbnail_path: legacy_skin.thumbnail_path,
                         conflicts: Vec::new(),
-                        files: Vec::new(), // Will be populated on refresh
+                        files: Vec::new(),           // Will be populated on refresh
                         installed_files: Vec::new(), // Will be populated on refresh
                     };
 
@@ -377,33 +378,33 @@ impl ModRegistry {
     }
 
     /// Convert a SkinMod to a frontend-friendly ModInfo
-    // pub fn skin_to_mod_info(sm: &SkinMod) -> ModInfo {
-    //     ModInfo {
-    //         directory_name: sm.base.directory_name.clone(),
-    //         name: Some(sm.base.name.clone()),
-    //         version: sm.base.version.clone(),
-    //         author: sm.base.author.clone(),
-    //         description: sm.base.description.clone(),
-    //         enabled: sm.base.enabled,
-    //     }
-    // }
+    pub fn skin_to_mod_info(sm: &SkinMod) -> ModInfo {
+        ModInfo {
+            directory_name: sm.base.directory_name.clone(),
+            name: Some(sm.base.name.clone()),
+            version: sm.base.version.clone(),
+            author: sm.base.author.clone(),
+            description: sm.base.description.clone(),
+            enabled: sm.base.enabled,
+        }
+    }
 
     /// Get all mods as ModInfo objects (for frontend compatibility)
-    // pub fn get_all_mod_info(&self) -> Vec<ModInfo> {
-    //     let mut result = Vec::new();
+    pub fn get_all_mod_info(&self) -> Vec<ModInfo> {
+        let mut result = Vec::new();
 
-    //     // Add standard mods
-    //     for m in &self.mods {
-    //         result.push(Self::to_mod_info(m));
-    //     }
+        // Add standard mods
+        for m in &self.mods {
+            result.push(Self::to_mod_info(m));
+        }
 
-    //     // Add skin mods
-    //     for sm in &self.skin_mods {
-    //         result.push(Self::skin_to_mod_info(sm));
-    //     }
+        // Add skin mods
+        for sm in &self.skin_mods {
+            result.push(Self::skin_to_mod_info(sm));
+        }
 
-    //     result
-    // }
+        result
+    }
 
     /// Get REFramework mods as ModInfo objects
     pub fn get_reframework_mod_info(&self) -> Vec<ModInfo> {
@@ -418,9 +419,9 @@ impl ModRegistry {
     }
 
     /// Get skin mods as ModInfo objects
-    // pub fn get_skin_mod_info(&self) -> Vec<ModInfo> {
-    //     self.skin_mods.iter().map(Self::skin_to_mod_info).collect()
-    // }
+    pub fn get_skin_mod_info(&self) -> Vec<ModInfo> {
+        self.skin_mods.iter().map(Self::skin_to_mod_info).collect()
+    }
 
     /// Find a mod by directory name
     pub fn find_mod(&self, directory_name: &str) -> Option<&Mod> {
@@ -440,6 +441,13 @@ impl ModRegistry {
     pub fn find_skin_mod(&self, directory_name: &str) -> Option<&SkinMod> {
         self.skin_mods
             .iter()
+            .find(|m| m.base.directory_name == directory_name)
+    }
+
+    /// Find a skin mod by directory name (mutable)
+    pub fn find_skin_mod_mut(&mut self, directory_name: &str) -> Option<&mut SkinMod> {
+        self.skin_mods
+            .iter_mut()
             .find(|m| m.base.directory_name == directory_name)
     }
 
@@ -486,41 +494,41 @@ impl ModRegistry {
     }
 
     /// Add a new skin mod to the registry
-    // pub fn add_skin_mod(&mut self, new_skin_mod: SkinMod) {
-    //     // Remove any existing skin mod with same directory name
-    //     self.skin_mods
-    //         .retain(|m| m.base.directory_name != new_skin_mod.base.directory_name);
-    //     // Add the new skin mod
-    //     self.skin_mods.push(new_skin_mod);
-    //     self.last_updated = chrono::Utc::now().timestamp();
-    // }
+    pub fn add_skin_mod(&mut self, new_skin_mod: SkinMod) {
+        // Remove any existing skin mod with same directory name
+        self.skin_mods
+            .retain(|m| m.base.directory_name != new_skin_mod.base.directory_name);
+        // Add the new skin mod
+        self.skin_mods.push(new_skin_mod);
+        self.last_updated = chrono::Utc::now().timestamp();
+    }
 
     /// Remove a mod from the registry
-    // pub fn remove_mod(&mut self, directory_name: &str) -> bool {
-    //     let initial_count = self.mods.len();
-    //     self.mods.retain(|m| m.directory_name != directory_name);
-    //     let removed = self.mods.len() != initial_count;
+    pub fn remove_mod(&mut self, directory_name: &str) -> bool {
+        let initial_count = self.mods.len();
+        self.mods.retain(|m| m.directory_name != directory_name);
+        let removed = self.mods.len() != initial_count;
 
-    //     if removed {
-    //         self.last_updated = chrono::Utc::now().timestamp();
-    //     }
+        if removed {
+            self.last_updated = chrono::Utc::now().timestamp();
+        }
 
-    //     removed
-    // }
+        removed
+    }
 
     /// Remove a skin mod from the registry
-    // pub fn remove_skin_mod(&mut self, directory_name: &str) -> bool {
-    //     let initial_count = self.skin_mods.len();
-    //     self.skin_mods
-    //         .retain(|m| m.base.directory_name != directory_name);
-    //     let removed = self.skin_mods.len() != initial_count;
+    pub fn remove_skin_mod(&mut self, directory_name: &str) -> bool {
+        let initial_count = self.skin_mods.len();
+        self.skin_mods
+            .retain(|m| m.base.directory_name != directory_name);
+        let removed = self.skin_mods.len() != initial_count;
 
-    //     if removed {
-    //         self.last_updated = chrono::Utc::now().timestamp();
-    //     }
+        if removed {
+            self.last_updated = chrono::Utc::now().timestamp();
+        }
 
-    //     removed
-    // }
+        removed
+    }
 
     /// Toggle a mod's enabled state
     pub fn toggle_mod_enabled(&mut self, directory_name: &str, enable: bool) -> Result<(), String> {
@@ -534,24 +542,24 @@ impl ModRegistry {
         }
     }
 
-    // Toggle a skin mod's enabled state
-    // pub fn toggle_skin_mod_enabled(
-    //     &mut self,
-    //     directory_name: &str,
-    //     enable: bool,
-    // ) -> Result<(), String> {
-    //     // Find the skin mod
-    //     if let Some(skin_mod) = self.find_skin_mod_mut(directory_name) {
-    //         skin_mod.base.enabled = enable;
-    //         self.last_updated = chrono::Utc::now().timestamp();
-    //         Ok(())
-    //     } else {
-    //         Err(format!(
-    //             "Skin mod '{}' not found in registry",
-    //             directory_name
-    //         ))
-    //     }
-    // }
+    /// Toggle a skin mod's enabled state
+    pub fn toggle_skin_mod_enabled(
+        &mut self,
+        directory_name: &str,
+        enable: bool,
+    ) -> Result<(), String> {
+        // Find the skin mod
+        if let Some(skin_mod) = self.find_skin_mod_mut(directory_name) {
+            skin_mod.base.enabled = enable;
+            self.last_updated = chrono::Utc::now().timestamp();
+            Ok(())
+        } else {
+            Err(format!(
+                "Skin mod '{}' not found in registry",
+                directory_name
+            ))
+        }
+    }
 }
 
 // Utility functions
@@ -698,45 +706,51 @@ pub fn extract_mod_name_from_folder(folder_name: &str) -> String {
     folder_name.to_string()
 }
 
-/// Find screenshot in a mod directory (copied from skinmanager.rs)
+/// Find screenshot in a mod directory (more robust version)
 fn find_screenshot(mod_dir: &Path) -> Option<String> {
-    // Look for screenshot with common names
-    let screenshot_candidates = vec![
-        "preview.jpg",
-        "preview.png",
-        "screenshot.jpg",
-        "screenshot.png",
-        "thumb.jpg",
-        "thumb.png",
-        "image.jpg",
-        "image.png",
-        "1.png",
-        "1.jpg",
-    ];
+    let image_extensions = ["png", "jpg", "jpeg", "webp"];
 
-    // Check in the main directory
-    for candidate in &screenshot_candidates {
-        let candidate_path = mod_dir.join(candidate);
-        if candidate_path.exists() && candidate_path.is_file() {
-            return Some(candidate_path.to_string_lossy().to_string());
-        }
-    }
-
-    // If not found, check in immediate subdirectories
+    // 1. Search in the root directory
     if let Ok(entries) = fs::read_dir(mod_dir) {
         for entry in entries.filter_map(Result::ok) {
-            let sub_path = entry.path();
-            if sub_path.is_dir() {
-                for candidate in &screenshot_candidates {
-                    let candidate_path = sub_path.join(candidate);
-                    if candidate_path.exists() && candidate_path.is_file() {
-                        return Some(candidate_path.to_string_lossy().to_string());
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+                    if image_extensions.iter().any(|e| ext.eq_ignore_ascii_case(e)) {
+                        log::debug!("Found screenshot in root: {}", path.display());
+                        return Some(path.to_string_lossy().to_string());
                     }
                 }
             }
         }
     }
 
+    // 2. If not found in root, search immediate subdirectories
+    if let Ok(entries) = fs::read_dir(mod_dir) {
+        for entry in entries.filter_map(Result::ok) {
+            let path = entry.path();
+            if path.is_dir() {
+                if let Ok(sub_entries) = fs::read_dir(&path) {
+                    for sub_entry in sub_entries.filter_map(Result::ok) {
+                        let sub_path = sub_entry.path();
+                        if sub_path.is_file() {
+                            if let Some(ext) = sub_path.extension().and_then(|s| s.to_str()) {
+                                if image_extensions.iter().any(|e| ext.eq_ignore_ascii_case(e)) {
+                                    log::debug!(
+                                        "Found screenshot in subdirectory: {}",
+                                        sub_path.display()
+                                    );
+                                    return Some(sub_path.to_string_lossy().to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    log::debug!("No screenshot found for: {}", mod_dir.display());
     None
 }
 
@@ -770,7 +784,6 @@ pub async fn list_mods(
 // --------- Skin Mod Management Commands (Consolidated) --------- //
 
 use std::collections::HashMap;
-use walkdir::WalkDir;
 
 #[tauri::command]
 pub async fn scan_and_update_skin_mods(
@@ -803,7 +816,7 @@ pub async fn scan_and_update_skin_mods(
     let mut existing_mods: HashMap<String, SkinMod> = registry
         .skin_mods
         .iter()
-        .map(|m| (m.base.path.clone(), m.clone()))
+        .map(|m| (m.base.path.clone(), m.clone())) // Use base.path here
         .collect();
 
     let mut updated_or_new_mods = Vec::new();
@@ -825,36 +838,149 @@ pub async fn scan_and_update_skin_mods(
         if path.is_dir() {
             log::debug!("Inspecting potential skin mod folder: {:?}", path);
 
+            // --- Filter Check (Recursive, limited depth) ---
+            let mut is_valid_skin_mod = false;
+            // Use WalkDir to check recursively up to depth 4 (root + 3 levels)
+            for inner_entry in WalkDir::new(path)
+                .max_depth(4)
+                .into_iter()
+                .filter_map(Result::ok)
+            {
+                let inner_path = inner_entry.path();
+
+                // Check if it's a directory named "natives"
+                if inner_path.is_dir() && inner_entry.file_name().to_str() == Some("natives") {
+                    is_valid_skin_mod = true;
+                    log::debug!("Found 'natives' directory inside: {}", inner_path.display());
+                    break; // Found one condition, no need to check further
+                }
+
+                // Check if it's a file with a .pak extension
+                if inner_path.is_file() {
+                    if let Some(ext) = inner_path.extension().and_then(|s| s.to_str()) {
+                        if ext.eq_ignore_ascii_case("pak") {
+                            is_valid_skin_mod = true;
+                            log::debug!("Found .pak file inside: {}", inner_path.display());
+                            break; // Found one condition, no need to check further
+                        }
+                    }
+                }
+            }
+
+            // Skip if neither condition was met during the recursive check
+            if !is_valid_skin_mod {
+                log::debug!("Skipping directory {:?}: No 'natives' subdir or .pak file found within depth 4.", path);
+                continue;
+            }
+            // --- End Filter Check ---
+
             // Get mod path as string
             let mod_path = path.to_string_lossy().to_string();
             found_mod_paths.insert(mod_path.clone());
 
             // Check if we already have this mod in the registry
-            if let Some(existing_mod) = existing_mods.remove(&mod_path) {
-                // TODO: Maybe check for updates here?
-                updated_or_new_mods.push(existing_mod);
+            if let Some(mut existing_mod) = existing_mods.remove(&mod_path) {
+                // Make existing_mod mutable
+
+                // --- Re-apply name extraction logic for existing mods ---
+                let folder_name = path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(&existing_mod.base.directory_name) // Fallback to existing dir name if needed
+                    .to_string();
+
+                let delimiters: &[char] = &['_', '-', ' ', '!', '#', '$', '.', '(', '['];
+                let cleaned_folder_name: String = folder_name
+                    .chars()
+                    .filter(|c| !c.is_whitespace() && *c != '\\')
+                    .collect();
+
+                // --- Refined Name Extraction Logic (Handles MHW/MHWs prefix) ---
+                let display_name = match cleaned_folder_name.find(delimiters) {
+                    Some(first_delim_index) => {
+                        let prefix = &cleaned_folder_name[..first_delim_index];
+                        if prefix.eq_ignore_ascii_case("mhw") || prefix.eq_ignore_ascii_case("mhws")
+                        {
+                            // Found MHW(s) prefix, look at the part *after* the delimiter
+                            let suffix = &cleaned_folder_name[first_delim_index + 1..];
+                            match suffix.find(delimiters) {
+                                Some(second_delim_index) => {
+                                    suffix[..second_delim_index].to_string()
+                                } // Take part before next delimiter
+                                None => suffix.to_string(), // No more delimiters, take the whole suffix
+                            }
+                        } else {
+                            // Prefix is not MHW(s), just use the prefix
+                            prefix.to_string()
+                        }
+                    }
+                    None => cleaned_folder_name, // No delimiters found, use the whole cleaned name
+                };
+                // --- End Refined Name Extraction ---
+
+                // Update the name in the existing mod struct if it changed
+                if existing_mod.base.name != display_name {
+                    log::debug!(
+                        "Updating name for existing mod '{}': '{}' -> '{}'",
+                        mod_path,
+                        existing_mod.base.name,
+                        display_name
+                    );
+                    existing_mod.base.name = display_name;
+                }
+                // --- End re-applying name extraction ---
+
+                // TODO: Maybe check for updates here? e.g., update thumbnail if changed?
+                updated_or_new_mods.push(existing_mod); // Push the potentially updated mod
+                log::debug!("Found existing mod in registry: {}", mod_path);
                 continue;
             }
 
             // If not in registry, it's a new mod
+            log::debug!("Found new potential skin mod: {}", mod_path);
             let folder_name = path
                 .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("Unknown")
                 .to_string();
 
-            let display_name = extract_mod_name_from_folder(&folder_name);
+            // --- Refined Name Extraction ---
+            let delimiters: &[char] = &['_', '-', ' ', '!', '#', '$', '.', '(', '['];
+            let cleaned_folder_name: String = folder_name
+                .chars()
+                .filter(|c| !c.is_whitespace() && *c != '\\')
+                .collect();
+
+            let display_name = match cleaned_folder_name.find(delimiters) {
+                Some(first_delim_index) => {
+                    let prefix = &cleaned_folder_name[..first_delim_index];
+                    if prefix.eq_ignore_ascii_case("mhw") || prefix.eq_ignore_ascii_case("mhws") {
+                        // Found MHW(s) prefix, look at the part *after* the delimiter
+                        let suffix = &cleaned_folder_name[first_delim_index + 1..];
+                        match suffix.find(delimiters) {
+                            Some(second_delim_index) => suffix[..second_delim_index].to_string(), // Take part before next delimiter
+                            None => suffix.to_string(), // No more delimiters, take the whole suffix
+                        }
+                    } else {
+                        // Prefix is not MHW(s), just use the prefix
+                        prefix.to_string()
+                    }
+                }
+                None => cleaned_folder_name, // No delimiters found, use the whole cleaned name
+            };
+            // --- End Refined Name Extraction ---
+
             let screenshot_path = find_screenshot(path);
 
             // Create the base Mod struct
             let base_mod = Mod {
                 name: display_name.clone(),
-                directory_name: folder_name,
+                directory_name: folder_name, // Keep original folder name as directory_name
                 path: mod_path.clone(),
-                enabled: false, // New mods start disabled
-                author: None,
-                version: None,
-                description: None,
+                enabled: false,    // New mods start disabled
+                author: None,      // TODO: Parse from modinfo.ini
+                version: None,     // TODO: Parse from modinfo.ini
+                description: None, // TODO: Parse from modinfo.ini
                 source: Some("local_scan".to_string()),
                 installed_timestamp: chrono::Utc::now().timestamp(),
                 installed_directory: mod_path.clone(), // Use mod path as identifier for skins
@@ -869,17 +995,24 @@ pub async fn scan_and_update_skin_mods(
                 files: Vec::new(), // Files are populated on enable
                 installed_files: Vec::new(),
             };
-
+            log::info!(
+                "Adding new skin mod: Name='{}', Path='{}'",
+                display_name,
+                mod_path
+            );
             updated_or_new_mods.push(skin_mod);
         }
     }
 
-    // Update registry with the latest list (removes mods no longer found)
+    // Update registry with the latest list (removes mods no longer found on disk)
     registry.skin_mods = updated_or_new_mods;
     registry.last_updated = chrono::Utc::now().timestamp();
     registry.save(&app_handle)?;
 
-    log::info!("Scan complete. Registry contains {} skin mods", registry.skin_mods.len());
+    log::info!(
+        "Scan complete. Registry contains {} skin mods",
+        registry.skin_mods.len()
+    );
     Ok(registry.skin_mods)
 }
 
@@ -999,15 +1132,18 @@ pub async fn enable_skin_mod_via_registry(
     if let Some(skin_mod) = registry.skin_mods.get_mut(mod_index) {
         skin_mod.base.enabled = true;
         skin_mod.installed_files = installed_files.clone(); // Store the list
-         log::info!(
+        log::info!(
             "Updated registry for '{}'. Enabled: {}, Installed Files: {}",
             mod_path,
             skin_mod.base.enabled,
             skin_mod.installed_files.len()
         );
     } else {
-         // This should theoretically not happen due to the initial find
-        return Err(format!("Failed to get mutable reference to SkinMod '{}' after finding it.", mod_path));
+        // This should theoretically not happen due to the initial find
+        return Err(format!(
+            "Failed to get mutable reference to SkinMod '{}' after finding it.",
+            mod_path
+        ));
     }
 
     registry.last_updated = chrono::Utc::now().timestamp();
@@ -1021,7 +1157,7 @@ pub async fn enable_skin_mod_via_registry(
 pub async fn disable_skin_mod_via_registry(
     app_handle: AppHandle,
     _game_root_path: String, // Game root not strictly needed if paths are absolute
-    mod_path: String,       // Use the original path as identifier
+    mod_path: String,        // Use the original path as identifier
 ) -> Result<(), String> {
     log::info!("Disabling skin mod via registry: {}", mod_path);
 
@@ -1080,21 +1216,31 @@ pub async fn disable_skin_mod_via_registry(
             skin_mod.base.enabled
         );
     } else {
-         // This should theoretically not happen
-        return Err(format!("Failed to get mutable reference to SkinMod '{}' after finding it.", mod_path));
+        // This should theoretically not happen
+        return Err(format!(
+            "Failed to get mutable reference to SkinMod '{}' after finding it.",
+            mod_path
+        ));
     }
 
     registry.last_updated = chrono::Utc::now().timestamp();
     registry.save(&app_handle)?;
 
     if !removal_errors.is_empty() {
-        log::error!("Errors occurred during file removal for '{}': {}. Registry state updated anyway.", mod_path, removal_errors.join("; "));
+        log::error!(
+            "Errors occurred during file removal for '{}': {}. Registry state updated anyway.",
+            mod_path,
+            removal_errors.join("; ")
+        );
         // Decide if this should be a hard error for the frontend
         // For now, we'll return Ok but log the errors.
         // return Err(format!("Errors during file removal: {}", removal_errors.join("; ")));
     }
 
-    log::info!("Successfully disabled skin mod '{}' via registry.", mod_path);
+    log::info!(
+        "Successfully disabled skin mod '{}' via registry.",
+        mod_path
+    );
     Ok(())
 }
 

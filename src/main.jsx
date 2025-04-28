@@ -1,9 +1,8 @@
 import React, { Suspense, lazy } from "react";
 import ReactDOM from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import { BrowserRouter, Routes, Route } from "react-router-dom"; // Import router components
 import App from "./App";
-// import "./App.css"; // Remove this line
+import AppInitializer from "./AppInitializer";
 import "./AppCustomStyles.css";
 
 // Lazy load page components for routing
@@ -12,9 +11,8 @@ const SettingsPage = lazy(() => import("./components/SettingsPage"));
 const SearchPage = lazy(() => import("./components/SearchPage"));
 const ErrorPage = lazy(() => import("./ErrorPage"));
 
-import { ConfigProvider, theme, App as AntApp, Spin } from "antd"; // Import ConfigProvider, theme, and App as AntApp to avoid naming conflict
-// import "antd/dist/reset.css"; // Import Ant Design CSS reset
-import { GameConfigProvider } from "./contexts/GameConfigContext"; // Import the provider
+import { ConfigProvider, theme, App as AntApp, Spin } from "antd";
+import { GameConfigProvider } from "./contexts/GameConfigContext";
 
 // Loading component for suspense fallback
 const LoadingFallback = () => (
@@ -27,12 +25,12 @@ const LoadingFallback = () => (
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <App />, // App likely contains the main layout (header)
+    element: <App />,
     errorElement: <Suspense fallback={<LoadingFallback />}><ErrorPage /></Suspense>,
     children: [
       {
-        index: true, // Default child route
-        element: <Suspense fallback={<LoadingFallback />}><MainContent /></Suspense> // Render MainContent in the App's Outlet
+        index: true,
+        element: <Suspense fallback={<LoadingFallback />}><MainContent /></Suspense>
       },
       {
         path: "search",
@@ -40,12 +38,10 @@ const router = createBrowserRouter([
       },
       {
         path: "settings",
-        element: <Suspense fallback={<LoadingFallback />}><SettingsPage /></Suspense> // SettingsPage also renders in the App's Outlet
+        element: <Suspense fallback={<LoadingFallback />}><SettingsPage /></Suspense>
       },
-      // Add other child routes here if needed
     ]
   },
-  // Add other top-level routes if necessary (e.g., a dedicated setup page outside App layout)
 ]);
 
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -56,9 +52,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           algorithm: theme.darkAlgorithm,
         }}
       >
-        {/* Wrap RouterProvider with AntApp */}
         <AntApp>
-          <RouterProvider router={router} />
+          <AppInitializer router={router} />
         </AntApp>
       </ConfigProvider>
     </GameConfigProvider>

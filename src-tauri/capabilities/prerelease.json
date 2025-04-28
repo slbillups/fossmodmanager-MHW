@@ -13,6 +13,8 @@
     "core:webview:deny-internal-toggle-devtools",
     "core:event:default",
     "os:default",
-    "http:default"
+    "http:default",
+    "os:default",
+    "process:default"
   ]
 }

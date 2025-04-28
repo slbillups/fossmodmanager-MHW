@@ -22,6 +22,9 @@
     "fs:allow-read-dir",
     "opener:allow-open-path",
     "http:default",
+    "core:window:allow-destroy",
+    "process:allow-restart",
+    "core:event:default",
     {
       "identifier": "fs:allow-exists",
       "allow": [
@@ -53,6 +56,7 @@
       ]
     },
     "shell:allow-open",
-    "shell:default"
+    "shell:default",
+    "os:default"
   ]
 }

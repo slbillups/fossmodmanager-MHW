@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{self};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::ipc::Channel;
-use tauri::{AppHandle, Emitter, Manager, WindowEvent, State};
+use tauri::{AppHandle, Listener, Manager, State, WindowEvent, Emitter};
 use zip::ZipArchive;
 
 use tauri_plugin_opener::OpenerExt;
@@ -15,7 +15,10 @@ use nexus_api::ApiCache;
 mod utils;
 use crate::utils::tempermission::ModOperationEvent;
 use utils::config::{
-    delete_config, load_game_config, save_game_config, validate_game_installation,
+    nuke_settings_and_relaunch,
+    load_game_config,
+    save_game_config,
+    validate_game_installation,
 };
 use utils::tempermission::with_game_dir_write_access;
 // Removed Nexus struct definitions - they are now in nexus_api/mod.rs
@@ -248,7 +251,7 @@ async fn download_bytes(url: &str) -> Result<bytes::Bytes, String> {
 // --- Existing Helper: REFramework Selective Extraction ---
 fn extract_reframework_files(
     archive: &mut zip::ZipArchive<std::io::Cursor<bytes::Bytes>>, // Take archive by mutable ref
-    target_dir: &PathBuf,
+    target_dir: &Path,
 ) -> Result<usize, String> {
     // Return count of extracted files/dirs
     log::info!(
@@ -704,17 +707,44 @@ async fn preload_mod_assets(app_handle: AppHandle, mods: Vec<String>) -> Result<
 }
 
 // --- Structs ---
+// Remove the StartupState struct definition entirely
+// #[derive(Debug, Serialize, Deserialize, Clone)]
+// struct StartupState {
+//     needs_setup: bool,
+// }
+
+// Define a simple struct for the command's return value
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct StartupState {
+struct CurrentStartupInfo {
     needs_setup: bool,
-    // We could add error messages here later if needed
 }
 
-// Add the new command function definition
+// Modify the command function
 #[tauri::command]
-async fn get_startup_state(state: State<'_, StartupState>) -> Result<StartupState, String> {
-    // Clone the state to return it
-    Ok(state.inner().clone())
+async fn get_startup_state(app_handle: AppHandle) -> Result<CurrentStartupInfo, String> {
+    log::info!("get_startup_state: Checking current config status...");
+    // Directly call load_game_config to get the current status
+    match utils::config::load_game_config(app_handle).await {
+        Ok(Some(_)) => {
+            // Config exists
+            log::info!("get_startup_state: Config found, setup NOT needed.");
+            Ok(CurrentStartupInfo { needs_setup: false })
+        }
+        Ok(None) => {
+            // Config does not exist
+            log::info!("get_startup_state: Config NOT found, setup IS needed.");
+            Ok(CurrentStartupInfo { needs_setup: true })
+        }
+        Err(e) => {
+            // Error loading config, assume setup needed as a safe default
+            log::error!(
+                "get_startup_state: Error loading config: {}. Assuming setup needed.",
+                e
+            );
+            Ok(CurrentStartupInfo { needs_setup: true })
+            // Alternatively, return an error: Err(format!("Failed to check startup state: {}", e))
+        }
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -744,10 +774,16 @@ pub fn run() {
     log::info!("Starting Foss Mod Manager");
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             println!("Another instance tried to start: {:?} in {:?}", argv, cwd);
-            app.emit_to("main", "single-instance", ()).unwrap();
+            // Attempt to focus the main window if another instance starts
+            if let Some(main_window) = app.get_webview_window("main") {
+                let _ = main_window.unminimize();
+                let _ = main_window.set_focus();
+            }
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
@@ -757,7 +793,7 @@ pub fn run() {
             save_game_config,
             load_game_config,
             validate_game_installation,
-            delete_config,
+            nuke_settings_and_relaunch,
             check_reframework_installed,
             ensure_reframework,
             install_mod_from_zip,
@@ -784,88 +820,107 @@ pub fn run() {
             log::info!("Executing Tauri setup closure...");
             let app_handle = app.handle().clone(); // Clone handle for use
 
-            // --- Startup Validation --- 
-            let mut needs_setup = false;
-            let mut validation_error: Option<String> = None;
-
-            // 1. Check user config
-            match tauri::async_runtime::block_on(utils::config::load_game_config(app_handle.clone())) {
-                Ok(Some(config_data)) => {
-                    log::info!("User config found: {:?}", config_data);
-                    // Optional: Add further validation for config_data if needed (e.g., check path existence)
-                    // let game_root = PathBuf::from(config_data.game_root_path);
-                    // if !game_root.exists() { ... set needs_setup = true ... }
+            // --- Startup Validation (Determine initial window visibility) ---
+            let mut needs_setup_initially = false; // Rename variable for clarity
+            // Keep this initial check ONLY for deciding which window to show first
+            match tauri::async_runtime::block_on(utils::config::load_game_config(
+                app_handle.clone(),
+            )) {
+                Ok(Some(_)) => {
+                    needs_setup_initially = false;
                 }
                 Ok(None) => {
-                    log::info!("User config not found. Setup required.");
-                    needs_setup = true;
+                    log::info!("Initial check: User config not found. Setup required.");
+                    needs_setup_initially = true;
                 }
                 Err(e) => {
-                    log::error!("Error loading user config: {}. Setup required.", e);
-                    needs_setup = true;
-                    validation_error = Some(format!("User config error: {}", e));
+                    log::error!("Initial check: Error loading user config: {}. Setup required.", e);
+                    needs_setup_initially = true;
+                    // Log the validation_error, but it's not used for managed state anymore
+                    let validation_error = Some(format!("User config error: {}", e));
+                    log::warn!("Configuration validation errors encountered: {}", validation_error.unwrap());
                 }
             }
 
-            // 2. Validate mod registry (only if setup not already needed)
-            if !needs_setup {
-                 match utils::modregistry::ModRegistry::validate_registry(&app_handle) {
-                    Ok(_) => log::info!("Mod registry validation passed (or file doesn't exist)."),
-                    Err(e) => {
-                        log::error!("Mod registry validation failed: {}. Setup required.", e);
-                        needs_setup = true;
-                         validation_error.get_or_insert_with(String::new).push_str(&format!(" Mod registry error: {};", e));
-                    }
-                 }
+            // Remove the management of the old StartupState
+            // let startup_state = StartupState { needs_setup: needs_setup_initially };
+            // app.manage(startup_state);
+            // log::info!("Startup state managed: needs_setup = {}", needs_setup_initially);
+
+            // --- Window Handling Based on Initial Setup State ---
+            let main_window = app
+                .get_webview_window("main")
+                .ok_or_else(|| "Failed to get main window".to_string())?;
+            let setup_window = app
+                .get_webview_window("setup")
+                .ok_or_else(|| "Failed to get setup window".to_string())?;
+
+            if needs_setup_initially { // Use the initial check variable
+                log::info!("Setup needed initially. Keeping setup window visible, main window hidden.");
+                // Setup window is visible by default from config, main is hidden
+            } else {
+                log::info!("Setup NOT needed initially. Showing main window, closing setup window.");
+                main_window
+                    .show()
+                    .map_err(|e| format!("Failed to show main window: {}", e))?;
+                setup_window
+                    .close()
+                    .map_err(|e| format!("Failed to close setup window: {}", e))?;
             }
 
-            // 3. Validate skin registry (now handled by ModRegistry validation)
-            // if !needs_setup {
-            //     match utils::skinmanager::validate_registry(&app_handle) {
-            //         Ok(_) => log::info!("Skin registry validation passed (or file doesn't exist)."),
-            //         Err(e) => {
-            //             log::error!("Skin registry validation failed: {}. Setup required.", e);
-            //             needs_setup = true;
-            //             validation_error.get_or_insert_with(String::new).push_str(&format!(" Skin registry error: {};", e));
-            //         }
-            //     }
-            // }
-            
-            // TODO: Handle validation_error? Maybe show it in the setup screen?
-            if let Some(err_msg) = validation_error {
-                 log::warn!("Configuration validation errors encountered: {}", err_msg);
-            }
-
-            // Create and manage startup state
-            let startup_state = StartupState { needs_setup };
-            app.manage(startup_state);
-            log::info!("Startup state managed: needs_setup = {}", needs_setup);
-            // --- End Startup Validation ---
-
-            // Ensure API cache system is initialized (moved after validation)
+            // Ensure API cache system is initialized
             let cache = ApiCache::new(app_handle.clone());
             app.manage(cache);
             log::info!("API Cache managed.");
 
-            // Get the main window and hide it initially
-            let main_window = app.get_webview_window("main").ok_or_else(|| "Failed to get main window".to_string())?;
-            main_window.hide().map_err(|e| e.to_string())?; // Hide window until frontend is ready
-            log::info!("Main window hidden initially.");
-
-
-            // Attach the close handler directly to the main window using on_window_event
-            // Clone app_handle again if the previous one was moved
-            let close_handle = app_handle.clone(); 
+            // Attach close handler to main window (still needed)
+            let close_handle = app_handle.clone();
             main_window.on_window_event(move |event| {
                 if let WindowEvent::CloseRequested { .. } = event {
-                    log::info!("Main window close requested via on_window_event. Exiting application.");
+                    log::info!("Main window close requested. Exiting application.");
                     close_handle.exit(0); // Exit the entire application
                 }
             });
-             log::info!("Window event listener (for close requested) added to main window.");
+            log::info!("Close requested listener added to main window.");
+
+            // --- Add Global Event Listener for Setup Completion ---
+            let event_handle = app_handle.clone();
+            app.listen_any("setup-complete", move |_event| {
+                log::info!("Received 'setup-complete' event from frontend.");
+                if let (Some(main_win), Some(setup_win)) = (
+                    event_handle.get_webview_window("main"),
+                    event_handle.get_webview_window("setup"),
+                ) {
+                    log::info!("Showing main window and closing setup window...");
+                    if let Err(e) = main_win.show() {
+                        log::error!("Failed to show main window after setup: {}", e);
+                    }
+                    if let Err(e) = main_win.set_focus() {
+                        log::error!("Failed to focus main window after setup: {}", e);
+                    }
+                    
+                    // Emit event back to main window to trigger context reload
+                    log::info!("Emitting 'config-saved-and-ready' to main window...");
+                    // We use main_win directly here as we already have the handle
+                    if let Err(e) = main_win.emit("config-saved-and-ready", ()) { // Send empty payload
+                       log::error!("Failed to emit config-saved-and-ready event: {}", e);
+                    }
+
+                    // Close the setup window AFTER emitting the event to main
+                    if let Err(e) = setup_win.close() {
+                        log::error!("Failed to close setup window after setup: {}", e);
+                    }
+                } else {
+                    log::error!(
+                        "Failed to get main or setup window handles during setup-complete event."
+                    );
+                }
+            });
+            log::info!("Global listener for 'setup-complete' added.");
 
             Ok(())
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+

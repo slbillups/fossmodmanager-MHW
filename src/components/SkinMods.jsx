@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { List, Card, Spin, Typography, Tag, notification, Button, Switch, Tooltip } from 'antd';
 import { invoke } from '@tauri-apps/api/core';
 import { ReloadOutlined, CheckCircleOutlined, StopOutlined } from '@ant-design/icons';
+import LoadingOverlay from './LoadingOverlay';
 
 const { Title, Text } = Typography;
 const { Meta } = Card;
@@ -11,7 +12,7 @@ const SkinMods = ({ gameRoot }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [imageData, setImageData] = useState({});
-  const [processingMod, setProcessingMod] = useState(null);
+  const [processingMods, setProcessingMods] = useState(new Set());
   const cachedImageRefs = useRef({});
 
   // Fetch skin mods from the registry
@@ -61,25 +62,35 @@ const SkinMods = ({ gameRoot }) => {
     }
 
     const actionType = enable ? 'Enabling' : 'Disabling';
-    setProcessingMod(mod.base.path);
-    
+    const modPath = mod.path;
+    setProcessingMods(prev => new Set(prev).add(modPath));
+
+    // --- Optimistic UI Update --- 
+    const originalMods = [...skinMods]; // Backup for revert
+    setSkinMods(prevMods =>
+      prevMods.map(m =>
+        m.path === modPath ? { ...m, base: { ...m.base, enabled: enable } } : m
+      )
+    );
+    // --- End Optimistic UI Update ---
+
     try {
       // Call the appropriate function based on the toggle action
       if (enable) {
         await invoke('enable_skin_mod_via_registry', { 
           gameRootPath: gameRoot,
-          modPath: mod.base.path // Access path via base
+          modPath: modPath
         });
       } else {
         await invoke('disable_skin_mod_via_registry', { 
-          gameRootPath: gameRoot, // Pass gameRoot for consistency, though maybe not needed
-          modPath: mod.base.path // Access path via base
+          gameRootPath: gameRoot,
+          modPath: modPath
         });
       }
       
       notification.success({
         message: `Skin ${enable ? 'Enabled' : 'Disabled'}`,
-        description: `Successfully ${enable ? 'enabled' : 'disabled'} ${mod.base.name}`
+        description: `Successfully ${enable ? 'enabled' : 'disabled'} ${mod.name}`
       });
       
       // Refresh the mod list to show updated status
@@ -90,8 +101,16 @@ const SkinMods = ({ gameRoot }) => {
         message: `${actionType} Error`,
         description: typeof err === 'string' ? err : `Failed to ${actionType.toLowerCase()} skin mod`
       });
+      // --- Revert Optimistic Update on Error ---
+      setSkinMods(originalMods);
+      fetchSkinMods(); // Also refresh on error to be sure
+      // --- End Revert ---
     } finally {
-      setProcessingMod(null);
+      setProcessingMods(prev => {
+        const next = new Set(prev);
+        next.delete(modPath);
+        return next;
+      });
     }
   };
 
@@ -189,6 +208,31 @@ const SkinMods = ({ gameRoot }) => {
 
   return (
     <div style={{ padding: '0 24px 24px' }}>
+      {/* Use the new LoadingOverlay component */}
+      <LoadingOverlay isLoading={processingMods.size > 0} tip="Updating Skin(s)..." />
+
+      {/* Add custom styles to override Ant Design defaults */}
+      <style>{`
+        .skin-mod-card .ant-card-actions {
+          background: transparent !important;
+          border-top: none !important; /* Also remove the top border often associated with actions */
+        }
+
+        /* Customize Switch appearance */
+        .skin-mod-card .ant-switch {
+          background-color: #f5222d !important; /* Red background for unchecked/disabled */
+        }
+
+        .skin-mod-card .ant-switch-checked {
+          background-color: #52c41a !important; /* Green background for checked/enabled */
+        }
+
+        /* Ensure handle is always visible (white) */
+        .skin-mod-card .ant-switch .ant-switch-handle::before {
+          background-color: #ffffff !important;
+        }
+      `}</style>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
         <Title level={4}>Skins</Title>
         <div>
@@ -216,15 +260,17 @@ const SkinMods = ({ gameRoot }) => {
           grid={{ gutter: 16, xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 6 }}
           dataSource={skinMods}
           locale={{ emptyText: 'No skin mods found. Add skin mods to the fossmodmanager/mods directory.' }}
-          renderItem={(mod) => (
+          renderItem={(mod) => {
+            return (
             <List.Item>
-              <Card
+              <Card className="skin-mod-card"
                 hoverable
+                style={{ background: 'transparent', border: 'none' }}
                 cover={(
                   <div style={{ height: 200, position: 'relative' }}>
                     {mod.thumbnail_path && imageData[mod.thumbnail_path] ? (
                       <img 
-                        alt={mod.base.name || 'Mod Screenshot'} // Access name via base
+                        alt={mod.name || 'Mod Screenshot'}
                         src={imageData[mod.thumbnail_path]}
                         style={{ 
                           height: '100%', 
@@ -255,47 +301,72 @@ const SkinMods = ({ gameRoot }) => {
                       position: 'absolute', 
                       top: 8, 
                       right: 8, 
-                      background: mod.base.enabled ? 'rgba(82, 196, 26, 0.8)' : 'rgba(245, 34, 45, 0.8)', // Access enabled via base 
+                      background: mod.enabled ? 'rgba(82, 196, 26, 0.8)' : 'rgba(245, 34, 45, 0.8)',
                       color: 'white',
                       padding: '2px 8px',
                       borderRadius: '4px',
                       display: 'flex',
                       alignItems: 'center'
                     }}>
-                      {mod.base.enabled ? 
+                      {mod.enabled ? 
                         <><CheckCircleOutlined style={{ marginRight: 5 }} /> Enabled</> : 
                         <><StopOutlined style={{ marginRight: 5 }} /> Disabled</>
                       }
                     </div>
                   </div>
                 )}
+                actions={[
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    padding: '0 12px', // Add padding for better spacing
+                    width: '100%' // Ensure full width for centering
+                  }}>
+                    <Text style={{ marginRight: '8px', color: '#aaa', fontSize: '12px' }}>
+                      {mod.enabled ? 'Disable' : 'Enable'}
+                    </Text>
+                    <Switch
+                      checked={mod.enabled}
+                      onChange={(checked) => toggleModEnabled(mod, checked)}
+                      loading={processingMods.has(mod.path)}
+                      size="small"
+                    />
+                  </div>
+                ]}
               >
                 <Meta 
-                  title={<span style={{ textTransform: 'capitalize' }}>{mod.base.name || 'Unnamed Mod'}</span>} 
+                  title={
+                    // Wrap title for better overflow control
+                    <div style={{ 
+                      whiteSpace: 'normal', // Allow wrapping 
+                      overflowWrap: 'break-word', // Break long words if necessary
+                      textTransform: 'capitalize' 
+                    }}>
+                      {/* Use the cleaned display name */}
+                      {mod.name || 'Unnamed Mod'}
+                    </div>
+                  } 
                   description={
                     <>
-                      {mod.base.description && <div>{mod.base.description}</div>}
-                      {mod.base.author && <div>By: {mod.base.author}</div>}
-                      {mod.base.version && <div>Version: {mod.base.version}</div>}
-                      {!mod.base.author && !mod.base.version && !mod.base.description && (
-                        <div>No additional information available</div>
+                      {mod.description && <div style={{ marginTop: 4 }}>{mod.description}</div>}
+                      {mod.author && <div style={{ marginTop: 4 }}>By: {mod.author}</div>}
+                      {mod.version && <div style={{ marginTop: 4 }}>Version: {mod.version}</div>}
+                      {!mod.author && !mod.version && !mod.description && (
+                        <div style={{ marginTop: 4, fontStyle: 'italic' }}>No additional information available</div>
                       )}
                     </>
                   }
                 />
-                <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Tag color="blue">{mod.base.path.split(/[\\/]/).pop()}</Tag>
-                  <Tooltip title={`${mod.base.enabled ? 'Disable' : 'Enable'} this skin mod`}>
-                    <Switch
-                      checked={mod.base.enabled}
-                      loading={processingMod === mod.base.path}
-                      onChange={(checked) => toggleModEnabled(mod, checked)}
-                    />
-                  </Tooltip>
+                {/* Place Tag and Switch separately */}
+                <div style={{ marginTop: 8 }}>
+                  {/* Use the cleaned display name in the tag */}
+                  <Tag color="blue">{mod.name || 'Unnamed Mod'}</Tag>
                 </div>
               </Card>
             </List.Item>
-          )}
+            );
+          }}
         />
       )}
     </div>

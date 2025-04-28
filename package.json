@@ -13,11 +13,13 @@
   },
   "dependencies": {
     "@tauri-apps/plugin-http": "~2.4.3",
+    "@tauri-apps/plugin-os": "~2.2.1",
+    "@tauri-apps/plugin-process": "2.2.1",
     "@tauri-apps/plugin-shell": "~2.2.1",
     "@tauri-apps/plugin-store": "~2.2.0",
     "antd": "^5.24.8",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
     "react-router-dom": "7.5.2",
     "tauri-plugin-clipboard-api": "^2.1.11"
   },
@@ -30,7 +32,7 @@
     "@tauri-apps/plugin-log": "~2.4.0",
     "@tauri-apps/plugin-opener": "^2.2.6",
     "@vitejs/plugin-react": "^4.4.1",
-    "vite": "^6.3.2"
+    "vite": "^6.3.3"
   },
   "packageManager": "pnpm@10.8.0+sha512.0e82714d1b5b43c74610193cb20734897c1d00de89d0e18420aebc5977fa13d780a9cb05734624e81ebd81cc876cd464794850641c48b9544326b5622ca29971"
 }

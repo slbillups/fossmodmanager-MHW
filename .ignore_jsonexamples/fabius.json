@@ -1,0 +1,82 @@
+{
+  "name": "NPC Fabius Costume Edit-2124-1-0-1745615862",
+  "type": "directory",
+  "children": [
+    {
+      "name": "MHWilds-NPC_Fabius_Costume_Edit.jpg",
+      "type": "file"
+    },
+    {
+      "name": "modinfo.ini",
+      "type": "file"
+    },
+    {
+      "name": "natives",
+      "type": "directory",
+      "children": [
+        {
+          "name": "STM",
+          "type": "directory",
+          "children": [
+            {
+              "name": "Art",
+              "type": "directory",
+              "children": [
+                {
+                  "name": "Model",
+                  "type": "directory",
+                  "children": [
+                    {
+                      "name": "Character",
+                      "type": "directory",
+                      "children": [
+                        {
+                          "name": "ch04",
+                          "type": "directory",
+                          "children": [
+                            {
+                              "name": "0",
+                              "type": "directory",
+                              "children": [
+                                {
+                                  "name": "08",
+                                  "type": "directory",
+                                  "children": [
+                                    {
+                                      "name": "00",
+                                      "type": "directory",
+                                      "children": [
+                                        {
+                                          "name": "00",
+                                          "type": "directory",
+                                          "children": [
+                                            {
+                                              "name": "ch04_008_0000.mdf2.45",
+                                              "type": "file"
+                                            },
+                                            {
+                                              "name": "ch04_008_0000.mesh.241111606",
+                                              "type": "file"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

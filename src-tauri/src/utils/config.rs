@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
+use std::env;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GameData {
@@ -150,13 +151,105 @@ pub async fn load_game_config(app_handle: AppHandle) -> Result<Option<GameData>,
 }
 
 #[tauri::command]
-pub async fn delete_config(app_handle: AppHandle) -> Result<(), String> {
-    let config_path = get_config_path(&app_handle)?;
-    match fs::remove_file(&config_path) {
-        Ok(_) => Ok(()),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(e) => Err(format!("Failed to delete config: {}", e)),
+pub async fn nuke_settings_and_relaunch(app_handle: AppHandle) -> Result<(), String> {
+    info!("Attempting to delete all application configuration, data, and cache.");
+
+    let config_dir = app_handle
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("Failed to get app config dir: {}", e))?;
+
+    let cache_dir = app_handle
+        .path()
+        .app_cache_dir()
+        .map_err(|e| format!("Failed to get app cache dir: {}", e))?;
+
+    let data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+
+    let mut errors = Vec::new();
+
+    // Attempt to remove config directory
+    if config_dir.exists() {
+        match fs::remove_dir_all(&config_dir) {
+            Ok(_) => info!("Successfully deleted config directory: {:?}", config_dir),
+            Err(e) => {
+                let err_msg = format!("Failed to delete config directory {:?}: {}", config_dir, e);
+                error!("{}", err_msg);
+                errors.push(err_msg);
+            }
+        }
+    } else {
+        info!(
+            "Config directory does not exist, skipping deletion: {:?}",
+            config_dir
+        );
     }
+
+    // Attempt to remove data directory
+    if data_dir.exists() {
+        match fs::remove_dir_all(&data_dir) {
+            Ok(_) => info!("Successfully deleted data directory: {:?}", data_dir),
+            Err(e) => {
+                let err_msg = format!("Failed to delete data directory {:?}: {}", data_dir, e);
+                error!("{}", err_msg);
+                errors.push(err_msg);
+            }
+        }
+    } else {
+        info!(
+            "Data directory does not exist, skipping deletion: {:?}",
+            data_dir
+        );
+    }
+
+    // Attempt to remove cache directory
+    if cache_dir.exists() {
+        match fs::remove_dir_all(&cache_dir) {
+            Ok(_) => info!("Successfully deleted cache directory: {:?}", cache_dir),
+            Err(e) => {
+                let err_msg = format!("Failed to delete cache directory {:?}: {}", cache_dir, e);
+                error!("{}", err_msg);
+                errors.push(err_msg);
+            }
+        }
+    } else {
+        info!(
+            "Cache directory does not exist, skipping deletion: {:?}",
+            cache_dir
+        );
+    }
+
+    if !errors.is_empty() {
+        // If there were errors deleting, return them instead of restarting
+        return Err(errors.join("; "));
+    }
+
+    // --- Environment variable cleanup ---
+    info!("Attempting to clear potential AppImage environment variables before relaunch.");
+    if let Ok(val) = env::var("APPIMAGE") {
+        info!("Found APPIMAGE variable: {}, removing.", val);
+        env::remove_var("APPIMAGE");
+    } else {
+        info!("APPIMAGE variable not found.");
+    }
+    if let Ok(val) = env::var("APPDIR") {
+         info!("Found APPDIR variable: {}, removing.", val);
+        env::remove_var("APPDIR");
+    } else {
+         info!("APPDIR variable not found.");
+    }
+    // --- End environment variable cleanup ---
+
+    info!("Configuration cleared successfully. Requesting application restart.");
+    // Restart the application. This function does not return.
+    app_handle.restart();
+
+    // Note: Code execution will not reach here if restart is successful.
+    // We still need a return type for the function signature, but Ok(()) is effectively unreachable.
+    Ok(())
 }
 
 fn get_config_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
