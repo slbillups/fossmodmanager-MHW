@@ -38,3 +38,4 @@ default.json.back
 *.sh
 *.env
 .env
+.ignore_jsonexamples/*

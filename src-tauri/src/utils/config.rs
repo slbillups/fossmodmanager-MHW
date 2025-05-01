@@ -249,7 +249,7 @@ pub async fn nuke_settings_and_relaunch(app_handle: AppHandle) -> Result<(), Str
 
     // Note: Code execution will not reach here if restart is successful.
     // We still need a return type for the function signature, but Ok(()) is effectively unreachable.
-    Ok(())
+    // Ok(())
 }
 
 fn get_config_path(app_handle: &AppHandle) -> Result<PathBuf, String> {

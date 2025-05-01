@@ -3,7 +3,7 @@ use std::fs;
 use std::io::{self};
 use std::path::{Path, PathBuf};
 use tauri::ipc::Channel;
-use tauri::{AppHandle, Listener, Manager, State, WindowEvent, Emitter};
+use tauri::{AppHandle, Listener, Manager, WindowEvent, Emitter};
 use zip::ZipArchive;
 
 use tauri_plugin_opener::OpenerExt;
@@ -834,11 +834,14 @@ pub fn run() {
                     needs_setup_initially = true;
                 }
                 Err(e) => {
-                    log::error!("Initial check: Error loading user config: {}. Setup required.", e);
+                    log::error!(
+                        "Initial check: Error loading user config: {}. Setup required.",
+                        e
+                    );
                     needs_setup_initially = true;
                     // Log the validation_error, but it's not used for managed state anymore
-                    let validation_error = Some(format!("User config error: {}", e));
-                    log::warn!("Configuration validation errors encountered: {}", validation_error.unwrap());
+                    let validation_error_msg = format!("User config error: {}", e);
+                    log::warn!("Configuration validation errors encountered: {}", validation_error_msg);
                 }
             }
 
