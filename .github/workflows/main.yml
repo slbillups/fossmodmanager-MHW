@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-22.04, windows-latest] # Build on Linux and Windows
+        platform: [ubuntu-22.04] # Build on Linux and Windows
 
     runs-on: ${{ matrix.platform }}
     steps:

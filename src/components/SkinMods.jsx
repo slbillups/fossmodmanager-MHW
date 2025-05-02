@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { List, Card, Spin, Typography, Tag, notification, Button, Switch, Tooltip } from 'antd';
+import { List, Card, Spin, Typography, Tag, notification, Button, Switch, Tooltip, Popconfirm } from 'antd';
 import { invoke } from '@tauri-apps/api/core';
-import { ReloadOutlined, CheckCircleOutlined, StopOutlined } from '@ant-design/icons';
+import { ReloadOutlined, CheckCircleOutlined, StopOutlined, DeleteOutlined } from '@ant-design/icons';
 import LoadingOverlay from './LoadingOverlay';
 
 const { Title, Text } = Typography;
@@ -14,6 +14,7 @@ const SkinMods = ({ gameRoot }) => {
   const [imageData, setImageData] = useState({});
   const [processingMods, setProcessingMods] = useState(new Set());
   const cachedImageRefs = useRef({});
+  const [processingDeleteSkin, setProcessingDeleteSkin] = useState(new Set());
 
   // Fetch skin mods from the registry
   const fetchSkinMods = async () => {
@@ -113,6 +114,50 @@ const SkinMods = ({ gameRoot }) => {
       });
     }
   };
+
+  // --- Delete Handler for Skin Mods ---
+  const handleDeleteSkinMod = async (mod) => {
+    if (!gameRoot) {
+      notification.error({ message: 'Error', description: 'Game root directory not set' });
+      return;
+    }
+
+    const modPath = mod.path; // Identifier is the original path
+    const modName = mod.name || mod.directory_name; // For messages
+
+    setProcessingDeleteSkin(prev => new Set(prev).add(modPath));
+
+    try {
+      await invoke('delete_skin_mod', {
+        gameRootPath: gameRoot,
+        modPath: modPath,
+      });
+
+      notification.success({
+        message: 'Skin Deleted',
+        description: `Successfully deleted skin mod '${modName}'.`,
+      });
+
+      // Refresh the list
+      fetchSkinMods();
+
+    } catch (err) {
+      console.error(`Error deleting skin mod ${modName}:`, err);
+      notification.error({
+        message: 'Deletion Error',
+        description: typeof err === 'string' ? err : `Failed to delete skin mod '${modName}'`,
+      });
+      // Optionally refresh even on error to sync state
+      fetchSkinMods(); 
+    } finally {
+      setProcessingDeleteSkin(prev => {
+        const next = new Set(prev);
+        next.delete(modPath);
+        return next;
+      });
+    }
+  };
+  // --- End Delete Handler ---
 
   // Separate function to handle image loading with cache handling
   const loadModImages = async (mods) => {
@@ -318,32 +363,49 @@ const SkinMods = ({ gameRoot }) => {
                 actions={[
                   <div style={{
                     display: 'flex',
-                    justifyContent: 'center',
+                    justifyContent: 'space-between',
                     alignItems: 'center',
-                    padding: '0 12px', // Add padding for better spacing
-                    width: '100%' // Ensure full width for centering
+                    padding: '0 12px',
+                    width: '100%'
                   }}>
-                    <Text style={{ marginRight: '8px', color: '#aaa', fontSize: '12px' }}>
-                      {mod.enabled ? 'Disable' : 'Enable'}
-                    </Text>
-                    <Switch
-                      checked={mod.enabled}
-                      onChange={(checked) => toggleModEnabled(mod, checked)}
-                      loading={processingMods.has(mod.path)}
-                      size="small"
-                    />
+                    <div style={{ display: 'flex', alignItems: 'center'}}> 
+                      <Text style={{ marginRight: '8px', color: '#aaa', fontSize: '12px' }}>
+                        {mod.enabled ? 'Disable' : 'Enable'}
+                      </Text>
+                      <Switch
+                        checked={mod.enabled}
+                        onChange={(checked) => toggleModEnabled(mod, checked)}
+                        loading={processingMods.has(mod.path)}
+                        size="small"
+                      />
+                    </div>
+                    <Popconfirm
+                      title={`Delete skin '${mod.name || mod.directory_name}'?`}
+                      description="This removes the mod files from the manager and game (if enabled). This cannot be undone."
+                      onConfirm={() => handleDeleteSkinMod(mod)}
+                      okText="Yes, Delete"
+                      cancelText="Cancel"
+                      okButtonProps={{ danger: true }}
+                    >
+                      <Button
+                        type="text"
+                        icon={<DeleteOutlined />}
+                        size="small"
+                        loading={processingDeleteSkin.has(mod.path)}
+                        danger
+                        style={{ color: '#ff4d4f'}}
+                      />
+                    </Popconfirm>
                   </div>
                 ]}
               >
                 <Meta 
                   title={
-                    // Wrap title for better overflow control
                     <div style={{ 
-                      whiteSpace: 'normal', // Allow wrapping 
-                      overflowWrap: 'break-word', // Break long words if necessary
+                      whiteSpace: 'normal',
+                      overflowWrap: 'break-word',
                       textTransform: 'capitalize' 
                     }}>
-                      {/* Use the cleaned display name */}
                       {mod.name || 'Unnamed Mod'}
                     </div>
                   } 
@@ -358,9 +420,7 @@ const SkinMods = ({ gameRoot }) => {
                     </>
                   }
                 />
-                {/* Place Tag and Switch separately */}
                 <div style={{ marginTop: 8 }}>
-                  {/* Use the cleaned display name in the tag */}
                   <Tag color="blue">{mod.name || 'Unnamed Mod'}</Tag>
                 </div>
               </Card>

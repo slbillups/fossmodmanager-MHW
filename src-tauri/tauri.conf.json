@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "fossmodmanager",
-  "version": "0.1.0",
+  "productName": "fossmodmanager-monsterhunterwilds",
+  "version": "0.7.0",
   "identifier": "com.fossmodmanager.app",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "fossmodmanager",
+        "title": "fossmodmanager-monsterhunterwilds",
         "width": 1280,
         "height": 720,
         "decorations": false,
@@ -20,7 +20,7 @@
         "label": "main"
       },
       {
-        "title": "FossModManager Setup",
+        "title": "fossmodmanager-monsterhunterwilds setup",
         "width": 600,
         "height": 400,
         "decorations": true,
@@ -52,12 +52,12 @@
         "X-Content-Type-Options": null,
         "Access-Control-Expose-Headers": "fossmodmanager-version",
         "Tauri-Custom-Header": {
-          "Application-Version": "0.1.0",
-          "Application-Name": "fossmodmanager",
+          "Application-Version": "0.7.0",
+          "Application-Name": "fossmodmanager-monsterhunterwilds",
           "Application-Sub": "fossmodmanager-vortexAPI-test",
           "Application-Author": "FossModManager",
           "Application-Website": "https://github.com/slbillups/fossmodmanager",
-          "Application-Description": "A mod manager for all"
+          "Application-Description": "A Linux-based mod manager for Monster Hunter: Wilds"
         }
       },
       "capabilities": [
@@ -256,6 +256,10 @@
             },
             {
               "identifier": "opener:allow-open-path",
+              "scope": { "allow": ["$RESOURCE/**"] }
+            },
+            {
+              "identifier": "fs:allow-remove",
               "scope": { "allow": ["$RESOURCE/**"] }
             }
           ]

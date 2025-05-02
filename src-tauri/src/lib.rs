@@ -815,6 +815,9 @@ pub fn run() {
             utils::modregistry::enable_skin_mod_via_registry, // Renamed
             utils::modregistry::disable_skin_mod_via_registry, // Renamed
             utils::modregistry::list_skin_mods_from_registry, // Renamed
+            // Add the new delete commands
+            utils::modregistry::delete_reframework_mod,
+            utils::modregistry::delete_skin_mod,
         ])
         .setup(|app| {
             log::info!("Executing Tauri setup closure...");

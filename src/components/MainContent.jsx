@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useContext, lazy, Suspense } from 'react';
-import { Button, notification, Spin, Typography, List, Card, message, Layout } from 'antd';
+import { Button, notification, Spin, Typography, List, Card, message, Layout, Popconfirm } from 'antd';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke, Channel } from '@tauri-apps/api/core';
 import { useGameConfig } from '../contexts/GameConfigContext';
@@ -11,7 +11,8 @@ import {
   AppstoreOutlined, 
   SkinOutlined, 
   SettingOutlined,
-  SearchOutlined
+  SearchOutlined,
+  DeleteOutlined
 } from '@ant-design/icons';
 import CustomInstallButton from './CustomInstallButton';
 
@@ -36,6 +37,7 @@ const MainContent = () => {
   const [animating, setAnimating] = useState(false);
   const [pageCache, setPageCache] = useState({});
   const [assetsPreloaded, setAssetsPreloaded] = useState(false);
+  const [processingDelete, setProcessingDelete] = useState(new Set()); // Track mods being deleted
 
   const fetchMods = useCallback(async (gameRootPath) => {
     if (!gameRootPath) return;
@@ -197,6 +199,38 @@ const MainContent = () => {
           message.error({ content: `Failed to toggle mod '${modName}': ${errorMsg}`, key: 'toggleMod', duration: 4 });
       }
   };
+
+  // --- New Delete Handler for REFramework Mods ---
+  const handleDeleteReframeworkMod = async (modName) => {
+    if (!gameConfig?.game_root_path) {
+      message.error('Game config not loaded.');
+      return;
+    }
+
+    setProcessingDelete(prev => new Set(prev).add(modName));
+    message.loading({ content: `Deleting mod '${modName}'...`, key: 'deleteMod' });
+
+    try {
+      await invoke('delete_reframework_mod', {
+        gameRootPath: gameConfig.game_root_path,
+        modName: modName,
+      });
+      message.success({ content: `Successfully deleted mod '${modName}'.`, key: 'deleteMod', duration: 3 });
+      // Refresh the list after successful deletion
+      fetchMods(gameConfig.game_root_path);
+    } catch (err) {
+      console.error(`Error deleting mod ${modName}:`, err);
+      const errorMsg = typeof err === 'string' ? err : (err.message || 'Unknown error');
+      message.error({ content: `Failed to delete mod '${modName}': ${errorMsg}`, key: 'deleteMod', duration: 5 });
+    } finally {
+      setProcessingDelete(prev => {
+        const next = new Set(prev);
+        next.delete(modName);
+        return next;
+      });
+    }
+  };
+  // --- End Delete Handler ---
 
   const handleSetupComplete = async (validatedData) => {
     if (!validatedData) {
@@ -386,9 +420,14 @@ const MainContent = () => {
                             marginBottom: '2px',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
-                            textOverflow: 'ellipsis'
+                            textOverflow: 'ellipsis',
+                            maxWidth: 'calc(100% - 30px)' // Ensure space for delete button
                           }}>
-                            {mod.name || mod.directory_name}
+                            {/* Truncate name */} 
+                            {(mod.name || mod.directory_name).length > 15
+                              ? `${(mod.name || mod.directory_name).substring(0, 15)}...`
+                              : (mod.name || mod.directory_name)
+                            }
                           </div>
                           <div style={{ 
                             fontSize: '13px', 
@@ -399,6 +438,36 @@ const MainContent = () => {
                             {mod.enabled ? 'Enabled' : 'Disabled'}
                           </div>
                         </div>
+                        {/* Wrap Delete Button with Popconfirm */} 
+                        <Popconfirm
+                          title={`Delete mod '${(mod.name || mod.directory_name)}'?`}
+                          description="This removes the mod folder and cannot be easily undone."
+                          onConfirm={() => handleDeleteReframeworkMod(mod.directory_name)} // Call handler on confirm
+                          okText="Yes, Delete"
+                          cancelText="No"
+                          okButtonProps={{ danger: true }}
+                          placement="topRight" // Adjust placement as needed
+                        >
+                          <Button
+                            type="text"
+                            icon={<DeleteOutlined style={{ color: '#ff4d4f' }} />} // Red color for delete
+                            size="small"
+                            // Add stopPropagation to prevent parent onClick from firing
+                            onClick={(e) => {
+                              e.stopPropagation(); 
+                            }}
+                            loading={processingDelete.has(mod.directory_name)}
+                            style={{ 
+                              position: 'absolute',
+                              right: '5px',
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                              color: '#ff4d4f', // Ensure icon color takes effect
+                              zIndex: 2 // Ensure it's above the hover effect pseudo-element
+                            }}
+                            danger // Use Ant Design's danger property for styling
+                          />
+                        </Popconfirm>
                       </div>
                     </div>
                   ))}

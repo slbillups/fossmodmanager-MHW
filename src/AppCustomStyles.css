@@ -21,10 +21,10 @@ html, body, div, .ant-layout, .ant-layout-content, .tab-content, .settings-conta
   display: none !important;
 }
 
-@font-face {
+/* @font-face {
   font-family: 'CrimsonText-SemiBold';
   src: url('./fonts/CrimsonText-SemiBold.ttf') format('truetype');
-}
+} */
 
 .ant-table-wrapper {
   padding-inline: 1.5rem;
