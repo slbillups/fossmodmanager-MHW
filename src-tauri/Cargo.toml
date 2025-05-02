@@ -66,3 +66,4 @@ tauri-plugin-single-instance = "2"
 tempfile = "3.19.1"
 tokio = { version = "1.44.2", features = ["macros", "rt-multi-thread"] }
 tauri-plugin-devtools = "2.0.0"
+"glib" = "0.20.0"
