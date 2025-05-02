@@ -5,7 +5,9 @@ FossModManager
   <img src="https://github.com/user-attachments/assets/6745e82e-d1c9-4e2b-a66d-af06d364b485" alt="FossModManager Demo">
 </p>
 
-FossModManager is a local, offline mod manager for Linux, that is nowhere close to being finished. But you can still use it to manage and keep track of your installed mods, toggle exisiting mods on and off, delete and install new mods without having to use wine or manually installing every mod and skin you come across. I may continue to work on this, but this was intended to just be a proof of concept.
+FossModManager is a local, offline mod manager for Linux, that is **nowhere close to being finished**. But you can still use it to manage and keep track of your installed mods, toggle exisiting mods on and off, delete and install new mods without having to use wine or manually installing every mod and skin you come across. 
+
+I may continue to work on this, but this was intended to just be a proof of concept.
 
 ## What is this?!?!
 
