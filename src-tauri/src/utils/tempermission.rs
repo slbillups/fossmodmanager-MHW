@@ -11,7 +11,7 @@ pub enum ModOperationEvent {
     Progress {
         operation: String,
         mod_name: String,
-        progress: f32, // 0.0 to 1.0
+        progress: f32, 
         message: String,
     },
     #[serde(rename_all = "camelCase")]

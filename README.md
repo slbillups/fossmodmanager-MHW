@@ -1,26 +1,33 @@
 # FossModManager
 
-FossModManager is a mod manager for Monster Hunter Wilds, built with Tauri and React.  
-This project is still in active development, and isn't intended for public use yet.  However you're free to download, fork, and modify the code as you see fit.
+<p align="center">
+  <img src="dist/video/demo.gif" alt="FossModManager Demo">
+</p>
 
-**Version:** 0.7.0 (testing checkpoint)
+FossModManager is a local, offline mod manager for Linux, that is nowhere close to being finished. But you can still use it to manage your mods, toggle exisiting mods on and off, delete and install new mods. I may continue to work on this, but this was intended to just be a proof of concept.
+
+**Version:** 0.7.0 alpha(?)
 
 ## Project Status
 
-- This was originally intended to be a mod manager for multiple games, but has since been refocused on Monster Hunter Wilds. Writing a mod manager, especially one in Rust is a bit more of a challenge than I anticipated.
-- This does have the functionality to install and track mods installed via .zip files, as well as tracking loose folders placed in the directory(which I currently have setup to watch for changes to skins):
+- This was originally intended to be a mod manager for multiple games, but has since been refocused on Monster Hunter Wilds. Writing a mod manager, especially one in Rust is not as fun as I thought it would be.
+- This does have the functionality to install and track mods installed via .zip files(no RAR support yet because I couldn't get the unrar or xcompress crates to work nicely with zip/tauri), as well as tracking loose folders placed in the directory(which I currently have setup to watch for changes to skins).
+
+Place your skins in the following directory:
 
 ```sh
 $root_game_directory/fossmodmanager/mods
 ```
 
-- The search feature is currently a **proof of concept**. You'll need to provide your own [Nexus Mods developer API key](https://www.nexusmods.com/users/myaccount?tab=api%20access) and modify the configuration accordingly if you want to use/modify it.
+Most skins will include two subdirectories modname_tex modname_model, be sure to bring both up into the mods directory and enable both to enable the skin.
+
+
+- The search feature is currently a **proof of concept**. You'll need to provide your own [Nexus Mods developer API key](https://www.nexusmods.com/users/myaccount?tab=api%20access) and place it in the root directory in an .env file with the key NEXUS_API_KEY=your_key_here.
+
 - By default, opening the search window will only display the top 10 Monster Hunter Wilds mods.
 
+- If things stop working, or mods aren't updating/the cache is invalidated - use the nuke button at the bottom of settings to clear the cache/config directories which should set you back to the setup page.
 
-## Usage
-
-Anyone is free to download and use this application as-is, but please be aware of the limitations above.
 
 ## Recommended IDE Setup
 
@@ -28,7 +35,7 @@ Anyone is free to download and use this application as-is, but please be aware o
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under GPLv3. 
 
 ### Fonts
 
