@@ -1,6 +1,6 @@
-<p align="center">
+<h1 align="center">
 # FossModManager
-</p>
+</h1>
 <p align="center">
   <img src="https://github.com/user-attachments/assets/6745e82e-d1c9-4e2b-a66d-af06d364b485" alt="FossModManager Demo">
 </p>
