@@ -1,9 +1,7 @@
 # FossModManager
 
 <p align="center">
-  <video src="https://github.com/user-attachments/assets/e7d40d72-f4c1-4bec-a670-46e4cf6dda8b" controls width="600">
-     Your browser does not support the video tag. <a href="https://github.com/user-attachments/assets/e7d40d72-f4c1-4bec-a670-46e4cf6dda8b">Watch video</a>
-  </video>
+  <img src="https://github.com/user-attachments/assets/6cb55f9f-9cc8-4e84-9ea9-5180520ffc9e" alt="FossModManager Demo">
 </p>
 
 FossModManager is a local, offline mod manager for Linux, that is nowhere close to being finished. But you can still use it to manage your mods, toggle exisiting mods on and off, delete and install new mods. I may continue to work on this, but this was intended to just be a proof of concept.
