@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 use walkdir::WalkDir;
 use std::collections::{HashMap, HashSet};
+use std::io::{BufRead, BufReader};
 
 /// Core representation of a mod in the registry
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1144,6 +1145,66 @@ pub async fn scan_and_update_skin_mods(
                 }
                 // --- End screenshot re-check ---
 
+                // --- Parse modinfo.ini *again* within this scope ---
+                let mut ini_name_update: Option<String> = None;
+                let mut ini_author_update: Option<String> = None;
+                let mut ini_version_update: Option<String> = None;
+                let mut ini_description_update: Option<String> = None;
+                let mod_info_path_update = path.join("modinfo.ini"); // path should still be valid here
+
+                if mod_info_path_update.is_file() {
+                    log::trace!("Re-parsing modinfo.ini for existing mod {}", mod_path);
+                    match fs::File::open(&mod_info_path_update) {
+                        Ok(file) => {
+                            let reader = BufReader::new(file);
+                            for line_result in reader.lines() {
+                                if let Ok(line) = line_result {
+                                    let trimmed_line = line.trim();
+                                    if trimmed_line.is_empty() || trimmed_line.starts_with(';') || trimmed_line.starts_with('#') { continue; }
+                                    if let Some((key, value)) = trimmed_line.split_once('=') {
+                                        let key_trimmed = key.trim().to_lowercase();
+                                        let value_trimmed = value.trim().to_string();
+                                        if !value_trimmed.is_empty() {
+                                            match key_trimmed.as_str() {
+                                                "name" => ini_name_update = Some(value_trimmed), // Capture potential name change too
+                                                "author" => ini_author_update = Some(value_trimmed),
+                                                "version" => ini_version_update = Some(value_trimmed),
+                                                "description" => ini_description_update = Some(value_trimmed),
+                                                _ => {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => log::warn!("Could not re-open modinfo.ini for {}: {}", folder_name, e),
+                    }
+                } // --- End Re-parsing ---
+
+
+                // --- Update metadata using newly parsed values --- 
+                // Update name if INI specified one (otherwise keep existing derived name)
+                if let Some(name_from_ini) = ini_name_update {
+                     if existing_mod.base.name != name_from_ini {
+                         log::debug!("Updating name for mod '{}' from modinfo.ini: '{}' -> '{}'", mod_path, existing_mod.base.name, name_from_ini);
+                         existing_mod.base.name = name_from_ini;
+                     }
+                 }
+                // Update other fields using the parsed values (which default to None if not found)
+                if existing_mod.base.author != ini_author_update {
+                    log::debug!("Updating author for mod '{}': {:?} -> {:?}", mod_path, existing_mod.base.author, ini_author_update);
+                    existing_mod.base.author = ini_author_update;
+                }
+                if existing_mod.base.version != ini_version_update {
+                     log::debug!("Updating version for mod '{}': {:?} -> {:?}", mod_path, existing_mod.base.version, ini_version_update);
+                     existing_mod.base.version = ini_version_update;
+                }
+                 if existing_mod.base.description != ini_description_update {
+                     log::debug!("Updating description for mod '{}': Changed", mod_path); // Avoid logging potentially long descriptions
+                     existing_mod.base.description = ini_description_update;
+                 }
+                 // --- End Metadata Update --- 
+
                 // --- Re-check installed files if mod is enabled ---
                 if existing_mod.base.enabled {
                     // If the mod is marked as enabled in registry, but installed files are missing, mark as disabled
@@ -1199,18 +1260,18 @@ pub async fn scan_and_update_skin_mods(
 
             let screenshot_path = find_screenshot(path);
 
-            // Create the base Mod struct
+            // Create the base Mod struct using parsed info or defaults
             let base_mod = Mod {
                 name: display_name.clone(),
-                directory_name: folder_name, // Keep original folder name as directory_name
+                directory_name: folder_name.clone(),
                 path: mod_path.clone(),
-                enabled: false,    // New mods start disabled
+                enabled: false,
                 author: None,      // TODO: Parse from modinfo.ini
                 version: None,     // TODO: Parse from modinfo.ini
                 description: None, // TODO: Parse from modinfo.ini
                 source: Some("local_scan".to_string()),
                 installed_timestamp: chrono::Utc::now().timestamp(),
-                installed_directory: mod_path.clone(), // Use mod path as identifier for skins
+                installed_directory: mod_path.clone(),
                 mod_type: ModType::SkinMod,
             };
 
@@ -1219,14 +1280,16 @@ pub async fn scan_and_update_skin_mods(
                 base: base_mod,
                 thumbnail_path: screenshot_path,
                 conflicts: Vec::new(),
-                files: Vec::new(), // Files are populated on enable
+                files: Vec::new(),
                 installed_files: Vec::new(),
                 installed_pak_path: None,
             };
             log::info!(
-                "Adding new skin mod: Name='{}', Path='{}'",
+                "Adding new skin mod: Name='{}', Path='{}', Author='{:?}', Version='{:?}'",
                 display_name,
-                mod_path
+                mod_path,
+                skin_mod.base.author,
+                skin_mod.base.version
             );
             updated_or_new_mods.push(skin_mod);
         }

@@ -31,7 +31,7 @@ Most skins will include two subdirectories modname_tex modname_model, be sure to
 
 ## Recommended IDE Setup
 
-- Your IDE of choice + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+- Your IDE of choice + [Tauri](https://tauri.app/develop/debug/) + [rust-analyzer](https://rust-analyzer.github.io/book/)
 
 ## License
 

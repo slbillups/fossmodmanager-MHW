@@ -112,10 +112,10 @@ pub async fn fetch_trending_mods(
 
     // Construct the V1 API URL
     let request_url = format!(
-        "{}/games/{}/mods/trending.json",
+        "{}/games/{}/mods/latest_added.json",
         NEXUS_API_URL_V1_BASE, game_domain_name
     );
-    println!("Fetching trending mods from: {}", request_url);
+    println!("Fetching latest added mods from: {}", request_url);
 
     // Construct headers for V1
     let mut headers = HeaderMap::new();

@@ -342,62 +342,62 @@ const SkinMods = ({ gameRoot }) => {
                         }} 
                       />
                     )}
-                    <div style={{ 
-                      position: 'absolute', 
-                      top: 8, 
-                      right: 8, 
-                      background: mod.enabled ? 'rgba(82, 196, 26, 0.8)' : 'rgba(245, 34, 45, 0.8)',
-                      color: 'white',
-                      padding: '2px 8px',
-                      borderRadius: '4px',
+                    {/* --- Container for Top-Right Elements --- */}
+                    <div style={{
+                      position: 'absolute',
+                      top: 8,
+                      right: 8,
                       display: 'flex',
-                      alignItems: 'center'
+                      alignItems: 'center',
+                      gap: '8px' // Add space between badge and button
                     }}>
-                      {mod.enabled ? 
-                        <><CheckCircleOutlined style={{ marginRight: 5 }} /> Enabled</> : 
-                        <><StopOutlined style={{ marginRight: 5 }} /> Disabled</>
-                      }
+                      {/* --- Status Badge (Now inside the container) --- */}
+                      <div 
+                        style={{ 
+                          // Removed absolute positioning, handled by parent
+                          background: mod.enabled ? 'rgba(82, 196, 26, 0.8)' : 'rgba(245, 34, 45, 0.8)',
+                          color: 'white',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          cursor: 'pointer'
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleModEnabled(mod, !mod.enabled);
+                        }}
+                      >
+                        {mod.enabled ? 
+                          <><CheckCircleOutlined style={{ marginRight: 5 }} /> Enabled</> : 
+                          <><StopOutlined style={{ marginRight: 5 }} /> Disabled</>
+                        }
+                      </div>
+                      {/* --- Delete Button Popconfirm (Moved Here) --- */}
+                      <Popconfirm
+                        title={`Delete skin '${mod.name || mod.directory_name}'?`}
+                        description="This removes the mod files from the manager and game (if enabled). This cannot be undone."
+                        onConfirm={() => handleDeleteSkinMod(mod)}
+                        okText="Yes, Delete"
+                        cancelText="Cancel"
+                        okButtonProps={{ danger: true }}
+                        // Prevent click event from bubbling up to the badge toggle
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Button
+                          type="text"
+                          icon={<DeleteOutlined />}
+                          size="small"
+                          loading={processingDeleteSkin.has(mod.path)}
+                          danger
+                          // Add a subtle background for better visibility
+                          style={{ color: '#ff4d4f', backgroundColor: 'rgba(0, 0, 0, 0.5)', borderRadius: '4px'}}
+                        />
+                      </Popconfirm>
                     </div>
+                    {/* --- End Container --- */}
                   </div>
                 )}
-                actions={[
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '0 12px',
-                    width: '100%'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center'}}> 
-                      <Text style={{ marginRight: '8px', color: '#aaa', fontSize: '12px' }}>
-                        {mod.enabled ? 'Disable' : 'Enable'}
-                      </Text>
-                      <Switch
-                        checked={mod.enabled}
-                        onChange={(checked) => toggleModEnabled(mod, checked)}
-                        loading={processingMods.has(mod.path)}
-                        size="small"
-                      />
-                    </div>
-                    <Popconfirm
-                      title={`Delete skin '${mod.name || mod.directory_name}'?`}
-                      description="This removes the mod files from the manager and game (if enabled). This cannot be undone."
-                      onConfirm={() => handleDeleteSkinMod(mod)}
-                      okText="Yes, Delete"
-                      cancelText="Cancel"
-                      okButtonProps={{ danger: true }}
-                    >
-                      <Button
-                        type="text"
-                        icon={<DeleteOutlined />}
-                        size="small"
-                        loading={processingDeleteSkin.has(mod.path)}
-                        danger
-                        style={{ color: '#ff4d4f'}}
-                      />
-                    </Popconfirm>
-                  </div>
-                ]}
               >
                 <Meta 
                   title={
@@ -411,18 +411,16 @@ const SkinMods = ({ gameRoot }) => {
                   } 
                   description={
                     <>
-                      {mod.description && <div style={{ marginTop: 4 }}>{mod.description}</div>}
-                      {mod.author && <div style={{ marginTop: 4 }}>By: {mod.author}</div>}
-                      {mod.version && <div style={{ marginTop: 4 }}>Version: {mod.version}</div>}
-                      {!mod.author && !mod.version && !mod.description && (
+                      {mod.description ? (
+                        <div style={{ marginTop: 4 }}>{mod.description}</div>
+                      ) : (
                         <div style={{ marginTop: 4, fontStyle: 'italic' }}>No additional information available</div>
                       )}
+                      {mod.author && <div style={{ marginTop: 4 }}>By: {mod.author}</div>}
+                      {mod.version && <div style={{ marginTop: 4 }}>Version: {mod.version}</div>}
                     </>
                   }
                 />
-                <div style={{ marginTop: 8 }}>
-                  <Tag color="blue">{mod.name || 'Unnamed Mod'}</Tag>
-                </div>
               </Card>
             </List.Item>
             );
