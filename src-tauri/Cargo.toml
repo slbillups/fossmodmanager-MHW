@@ -15,10 +15,10 @@ name = "fossmodmanager_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2.2.0", features = [] }
+tauri-build = { version = "2.5.5", features = [] }
 
 [dependencies]
-tauri = { version = "2.5.1", features = ["protocol-asset"] }
+tauri = { version = "2.10.2", features = ["protocol-asset"] }
 tauri-plugin-opener = "2.2.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.140"
@@ -35,7 +35,7 @@ dotenvy = "0.15.7"
 tokio = "1.44.2"
 futures-util = "0.3.31"
 log = "0.4.27"
-zip = "2.6.1"
+zip = "7.4.0"
 tauri-plugin-log = "2.4.0"
 regex = "1.11.1"
 once_cell = "1.21.2"
