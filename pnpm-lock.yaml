@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  valibot: '>=1.2.0'
+
 importers:
 
   .:
@@ -39,7 +42,7 @@ importers:
         specifier: ^2.1.11
         version: 2.1.11
       valibot:
-        specifier: ^1.2.0
+        specifier: '>=1.2.0'
         version: 1.2.0
     devDependencies:
       '@ant-design/icons':
@@ -1137,14 +1140,6 @@ packages:
     hasBin: true
     peerDependencies:
       browserslist: '>= 4.21.0'
-
-  valibot@0.40.0:
-    resolution: {integrity: sha512-XHKnaVtwHqxPwnGOsLrwka9CEaL7yNeLNp707OKv/bmT29GnPVdl6PxBOZ6BW7hF66/6QT6iVbOlnW7qVPmoKw==}
-    peerDependencies:
-      typescript: '>=5'
-    peerDependenciesMeta:
-      typescript:
-        optional: true
 
   valibot@1.2.0:
     resolution: {integrity: sha512-mm1rxUsmOxzrwnX5arGS+U4T25RdvpPjPN4yR0u9pUBov9+zGVtO84tif1eY4r6zWxVxu3KzIyknJy3rxfRZZg==}
@@ -2313,7 +2308,7 @@ snapshots:
   tauri-plugin-clipboard-api@2.1.11:
     dependencies:
       '@tauri-apps/api': 2.0.1
-      valibot: 0.40.0
+      valibot: 1.2.0
     transitivePeerDependencies:
       - typescript
 
@@ -2331,8 +2326,6 @@ snapshots:
       browserslist: 4.28.1
       escalade: 3.2.0
       picocolors: 1.1.1
-
-  valibot@0.40.0: {}
 
   valibot@1.2.0: {}
 
