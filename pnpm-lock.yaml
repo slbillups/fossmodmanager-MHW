@@ -38,6 +38,9 @@ importers:
       tauri-plugin-clipboard-api:
         specifier: ^2.1.11
         version: 2.1.11
+      valibot:
+        specifier: ^1.2.0
+        version: 1.2.0
     devDependencies:
       '@ant-design/icons':
         specifier: ^6.1.0
@@ -1137,6 +1140,14 @@ packages:
 
   valibot@0.40.0:
     resolution: {integrity: sha512-XHKnaVtwHqxPwnGOsLrwka9CEaL7yNeLNp707OKv/bmT29GnPVdl6PxBOZ6BW7hF66/6QT6iVbOlnW7qVPmoKw==}
+    peerDependencies:
+      typescript: '>=5'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
+  valibot@1.2.0:
+    resolution: {integrity: sha512-mm1rxUsmOxzrwnX5arGS+U4T25RdvpPjPN4yR0u9pUBov9+zGVtO84tif1eY4r6zWxVxu3KzIyknJy3rxfRZZg==}
     peerDependencies:
       typescript: '>=5'
     peerDependenciesMeta:
@@ -2322,6 +2333,8 @@ snapshots:
       picocolors: 1.1.1
 
   valibot@0.40.0: {}
+
+  valibot@1.2.0: {}
 
   vite@6.4.1:
     dependencies:
